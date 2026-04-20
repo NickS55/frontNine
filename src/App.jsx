@@ -20,14 +20,16 @@ function LandingPage() {
       <section className="relative z-10 px-6 py-20 md:py-32 lg:py-40">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight text-foreground md:text-6xl lg:text-7xl">
-            The coaching platform built for
+            The Coaching
+            <br />
+            Platform for
             <br />
             <RotatingText
               phrases={[
-                'championship teams',
-                'player development',
-                'your roster',
-                'your program',
+                'Championship Teams',
+                'Player Development',
+                'Your Roster',
+                'Your Program',
               ]}
             />
           </h1>
