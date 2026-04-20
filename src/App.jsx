@@ -1,27 +1,20 @@
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { FloatingEquipment } from './components/FloatingEquipment'
 import { RotatingText } from './components/RotatingText'
+import { Header } from './components/Header'
+import SignInPage from './SignInPage'
+import HomePage from './HomePage'
+import AdminPage from './AdminPage'
+import BullpenSessionPage from './BullpenSessionPage'
 import './App.css'
 
-export default function App() {
+function LandingPage() {
+  const navigate = useNavigate()
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
       <FloatingEquipment />
-
-      {/* Header */}
-      <header className="relative z-10 border-b border-border/50 bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-5xl flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" width="22" height="22">
-                <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="2" />
-                <path strokeLinecap="round" strokeWidth="2" stroke="currentColor"
-                  d="m51.04508,2.69672a48,48 0 0 1 0,96m-30,-73c10,8 20.20713,10.1496 30.20713,10.1496s19.79287,-2.1496 29.79287,-10.1496m-60,50c10,-8 19.58573,-11.3924 29.58573,-11.3924s20.41427,3.3924 30.41427,11.3924" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold text-foreground">frontNine</span>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero */}
       <section className="relative z-10 px-6 py-20 md:py-32 lg:py-40">
@@ -48,12 +41,24 @@ export default function App() {
 
           <button
             className="w-36 rounded-lg bg-primary px-6 py-3 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90 cursor-pointer"
-            onClick={() => window.location.href = '/lineup'}
+            onClick={() => navigate('/sign-in')}
           >
             Start
           </button>
         </div>
       </section>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/sign-in/*" element={<SignInPage />} />
+      <Route path="/home" element={<HomePage />} />
+      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/bullpen/:sessionId" element={<BullpenSessionPage />} />
+    </Routes>
   )
 }
