@@ -20,23 +20,20 @@ function LandingPage() {
       <section className="relative z-10 px-6 py-20 md:py-32 lg:py-40">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight text-foreground md:text-6xl lg:text-7xl">
-            Tools to
+            The coaching platform built for
             <br />
             <RotatingText
               phrases={[
-                'Stay Healthy',
-                'Throw Harder',
-                'Throw Strikes',
-                'Hit Harder',
-                'Get Drafted',
-                'Make More Plays',
+                'championship teams',
+                'player development',
+                'your roster',
+                'your program',
               ]}
             />
           </h1>
 
           <p className="mb-10 mx-auto max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-            Track the metrics that matter... weight, grip strength, velocity, and rotation measurements.
-            Monitor your progress over time and join our community to decide what metrics to track next.
+            All your players. All their data. One platform to develop your entire roster.
           </p>
 
           <button
