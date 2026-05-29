@@ -102,10 +102,10 @@ export default function LandingPage() {
               icon={<StatsIcon />}
             />
             <FeatureCard
-              label="FREE TOOL"
-              title="See Your MLB Comp"
-              description="Curious how your pitch metrics compare to the pros? Try our free tool. A fun way to introduce players to data-driven development before they dive in."
-              cta="Try It Free →"
+              label="COMPARE TO THE BEST"
+              title="MLB Comparison Tool"
+              description="Enter your pitch data. See which MLB pitcher you compare to. Free."
+              cta="Try It Now →"
               href="/pitch-dna"
               live
               icon={<MlbIcon />}
