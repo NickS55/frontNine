@@ -1,10 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif,
+  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-display: "Barlow Condensed", sans-serif;
+  --font-display: "Open Sans", sans-serif;
+
+  /* Bump small sizes up one step for better readability */
+  --text-xs: 0.8125rem;   /* was 0.75rem (12px) → now 13px */
+  --text-sm: 0.9375rem;   /* was 0.875rem (14px) → now 15px */
 }
 
 /* Boston Marathon: deep navy + gold */

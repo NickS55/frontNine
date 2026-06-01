@@ -3,6 +3,7 @@ import { useAuth, useUser } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
 import { Header } from './components/Header'
 import { FloatingEquipment } from './components/FloatingEquipment'
+import { roleKey } from './OnboardingPage'
 import './App.css'
 
 const BASE_URL = 'https://backnine-production-eb29.up.railway.app'
@@ -35,10 +36,11 @@ function heightDisplay(cm) {
 
 export default function HomePage() {
   const { getToken } = useAuth()
-  const { isSignedIn, isLoaded } = useUser()
+  const { isSignedIn, isLoaded, user } = useUser()
   const navigate = useNavigate()
 
   const [profile, setProfile] = useState(null)
+  const [userRole, setUserRole] = useState(null)
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -53,7 +55,23 @@ export default function HomePage() {
         const headers = { Authorization: `Bearer ${token}` }
 
         const profileRes = await fetch(`${BASE_URL}/players/me`, { headers })
-        if (profileRes.status === 404) { setLoading(false); return }
+        if (profileRes.status === 404) {
+          let savedRole = user ? localStorage.getItem(roleKey(user.id)) : null
+          if (!savedRole) {
+            const meRes = await fetch(`${BASE_URL}/me`, { headers })
+            if (meRes.ok) {
+              const meData = await meRes.json()
+              if (meData.role) {
+                savedRole = meData.role
+                if (user) localStorage.setItem(roleKey(user.id), meData.role)
+              }
+            }
+          }
+          if (!savedRole) { navigate('/onboarding'); return }
+          setUserRole(savedRole)
+          setLoading(false)
+          return
+        }
         if (!profileRes.ok) throw new Error(`HTTP ${profileRes.status}`)
         const playerData = await profileRes.json()
         setProfile(playerData)
@@ -73,7 +91,7 @@ export default function HomePage() {
     }
 
     fetchData()
-  }, [isLoaded, isSignedIn, getToken, navigate])
+  }, [isLoaded, isSignedIn, getToken, navigate, user])
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
@@ -84,10 +102,23 @@ export default function HomePage() {
         {loading && <p className="text-muted-foreground">Loading…</p>}
         {error && <p className="text-destructive">{error}</p>}
 
-        {!loading && !error && !profile && (
+        {!loading && !error && !profile && userRole === 'coach' && (
           <div className="py-20 text-center">
-            <p className="mb-2 text-lg font-semibold">No player profile yet</p>
-            <p className="text-sm text-muted-foreground">Set up your profile to get started.</p>
+            <p className="mb-2 text-lg font-semibold">Coach Dashboard</p>
+            <p className="text-sm text-muted-foreground">Team management is coming soon.</p>
+          </div>
+        )}
+
+        {!loading && !error && !profile && userRole === 'player' && (
+          <div className="py-20 text-center">
+            <p className="mb-2 text-lg font-semibold">Complete your profile</p>
+            <p className="mb-5 text-sm text-muted-foreground">Set up your player profile to start tracking sessions.</p>
+            <button
+              onClick={() => navigate('/onboarding')}
+              className="cursor-pointer rounded-lg bg-primary px-5 py-2.5 font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Set Up Profile →
+            </button>
           </div>
         )}
 

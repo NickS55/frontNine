@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import LandingPage from './LandingPage'
 import SignInPage from './SignInPage'
 import HomePage from './HomePage'
+import OnboardingPage from './OnboardingPage'
 import AdminPage from './AdminPage'
 import BullpenSessionPage from './BullpenSessionPage'
 import PitchDnaPage from './PitchDnaPage'
@@ -12,6 +13,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/sign-in/*" element={<SignInPage />} />
+      <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/home" element={<HomePage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/bullpen/:sessionId" element={<BullpenSessionPage />} />
