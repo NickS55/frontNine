@@ -55,6 +55,11 @@ export default function HomePage() {
         const headers = { Authorization: `Bearer ${token}` }
 
         const profileRes = await fetch(`${BASE_URL}/players/me`, { headers })
+        if (profileRes.status === 403) {
+          // Not in users table yet — brand new user
+          navigate('/onboarding')
+          return
+        }
         if (profileRes.status === 404) {
           let savedRole = user ? localStorage.getItem(roleKey(user.id)) : null
           if (!savedRole) {
