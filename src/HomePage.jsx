@@ -6,7 +6,7 @@ import { FloatingEquipment } from './components/FloatingEquipment'
 import { roleKey } from './OnboardingPage'
 import './App.css'
 
-const BASE_URL = 'https://backnine-production-eb29.up.railway.app'
+const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
 const POSITION_LABELS = {
   pitcher: 'P', catcher: 'C', first_base: '1B', second_base: '2B',

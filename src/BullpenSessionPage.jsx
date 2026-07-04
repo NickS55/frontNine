@@ -5,7 +5,7 @@ import { Header } from './components/Header'
 import { FloatingEquipment } from './components/FloatingEquipment'
 import './App.css'
 
-const BASE_URL = 'https://backnine-production-eb29.up.railway.app'
+const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
 const PITCH_TYPE_LABELS = {
   four_seam: '4-Seam', two_seam: '2-Seam', sinker: 'Sinker', cutter: 'Cutter',

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Header } from './components/Header'
 import { FloatingEquipment } from './components/FloatingEquipment'
 
-const BASE_URL = 'https://backnine-production-eb29.up.railway.app'
+const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
 const POSITIONS = [
   { value: 'pitcher',           label: 'P',  name: 'Pitcher'  },

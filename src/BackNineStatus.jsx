@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const BASE_URL = 'https://backnine-production-eb29.up.railway.app'
+const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
 async function checkEndpoint(path) {
   const res = await fetch(`${BASE_URL}${path}`)
