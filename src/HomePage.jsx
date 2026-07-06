@@ -3,7 +3,9 @@ import { useAuth, useUser } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
 import { Header } from './components/Header'
 import { FloatingEquipment } from './components/FloatingEquipment'
+import CoachDashboard from './CoachDashboard'
 import { roleKey } from './OnboardingPage'
+import { PENDING_INVITE_KEY } from './InvitePage'
 import './App.css'
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
@@ -81,6 +83,14 @@ export default function HomePage() {
         const playerData = await profileRes.json()
         setProfile(playerData)
 
+        // Auto-accept a pending team invite (set when clicking an invite link before signing in)
+        const pendingInvite = localStorage.getItem(PENDING_INVITE_KEY)
+        if (pendingInvite) {
+          localStorage.removeItem(PENDING_INVITE_KEY)
+          navigate(`/invite/${pendingInvite}`)
+          return
+        }
+
         const sessionsRes = await fetch(
           `${BASE_URL}/players/${playerData.id}/bullpen-sessions`,
           { headers }
@@ -107,12 +117,7 @@ export default function HomePage() {
         {loading && <p className="text-muted-foreground">Loading…</p>}
         {error && <p className="text-destructive">{error}</p>}
 
-        {!loading && !error && !profile && userRole === 'coach' && (
-          <div className="py-20 text-center">
-            <p className="mb-2 text-lg font-semibold">Coach Dashboard</p>
-            <p className="text-sm text-muted-foreground">Team management is coming soon.</p>
-          </div>
-        )}
+        {!loading && !error && !profile && userRole === 'coach' && <CoachDashboard />}
 
         {!loading && !error && !profile && userRole === 'player' && (
           <div className="py-20 text-center">
@@ -146,6 +151,9 @@ export default function HomePage() {
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex flex-wrap items-center gap-2">
                   <h1 className="text-xl font-bold">{profile.name}</h1>
+                  <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                    Player
+                  </span>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     profile.status === 'active'   ? 'bg-primary/15 text-primary' :
                     profile.status === 'injured'  ? 'bg-destructive/15 text-destructive' :

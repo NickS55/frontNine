@@ -293,12 +293,15 @@ function CoachesSection({ teamId, getToken }) {
 
   const load = useCallback(async () => {
     const token = await getToken()
-    const [membersRes, profilesRes] = await Promise.all([
+    const [membersRes, usersRes] = await Promise.all([
       fetch(`${BASE_URL}/teams/${teamId}/members`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${BASE_URL}/coach-profiles`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${BASE_URL}/users`, { headers: { Authorization: `Bearer ${token}` } }),
     ])
     if (membersRes.ok) setCoaches((await membersRes.json()).coaches)
-    if (profilesRes.ok) setAllProfiles(await profilesRes.json())
+    if (usersRes.ok) {
+      const all = await usersRes.json()
+      setAllProfiles(all.filter(u => u.role === 'coach').map(u => ({ userId: u.id, name: null, email: u.email })))
+    }
     setLoading(false)
   }, [teamId, getToken])
 
@@ -370,17 +373,22 @@ function CoachesSection({ teamId, getToken }) {
           </div>
         )
       }
-      {available.length > 0 && (
-        <div className="flex items-center gap-2">
-          <ProfileSelect
-            value={addUserId}
-            onChange={setAddUserId}
-            options={available}
-            placeholder="Add coach…"
-          />
-          <ActionButton onClick={addCoach}>Add</ActionButton>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        {available.length === 0
+          ? <p className="text-xs text-muted-foreground">No eligible coaches — they must register first.</p>
+          : (
+            <>
+              <ProfileSelect
+                value={addUserId}
+                onChange={setAddUserId}
+                options={available}
+                placeholder="Add coach…"
+              />
+              <ActionButton onClick={addCoach}>Add</ActionButton>
+            </>
+          )
+        }
+      </div>
     </div>
   )
 }
@@ -480,26 +488,31 @@ function PlayersSection({ teamId, getToken }) {
           </div>
         )
       }
-      {available.length > 0 && (
-        <div className="flex items-center gap-2">
-          <ProfileSelect
-            value={addPlayerId}
-            onChange={setAddPlayerId}
-            options={available.map(p => ({ id: p.id, name: p.name, email: p.email }))}
-            placeholder="Add player…"
-          />
-          <input
-            type="number"
-            min="0"
-            max="99"
-            placeholder="Jersey #"
-            value={addJersey}
-            onChange={e => setAddJersey(e.target.value)}
-            className="w-24 rounded border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <ActionButton onClick={addPlayer}>Add</ActionButton>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        {available.length === 0
+          ? <p className="text-xs text-muted-foreground">No eligible players — they must register first.</p>
+          : (
+            <>
+              <ProfileSelect
+                value={addPlayerId}
+                onChange={setAddPlayerId}
+                options={available.map(p => ({ id: p.id, name: p.name, email: p.email }))}
+                placeholder="Add player…"
+              />
+              <input
+                type="number"
+                min="0"
+                max="99"
+                placeholder="Jersey #"
+                value={addJersey}
+                onChange={e => setAddJersey(e.target.value)}
+                className="w-24 rounded border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <ActionButton onClick={addPlayer}>Add</ActionButton>
+            </>
+          )
+        }
+      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import OnboardingPage from './OnboardingPage'
 import AdminPage from './AdminPage'
 import BullpenSessionPage from './BullpenSessionPage'
 import PitchDnaPage from './PitchDnaPage'
+import InvitePage from './InvitePage'
 import './App.css'
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/bullpen/:sessionId" element={<BullpenSessionPage />} />
       <Route path="/pitch-dna" element={<PitchDnaPage />} />
+      <Route path="/invite/:token" element={<InvitePage />} />
     </Routes>
   )
 }

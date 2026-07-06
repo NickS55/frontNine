@@ -26,21 +26,38 @@ export function roleKey(userId) {
   return `backNine_role_${userId}`
 }
 
+function profileDoneKey(userId) {
+  return `backNine_profile_done_${userId}`
+}
+
 export default function OnboardingPage() {
   const { getToken } = useAuth()
   const { isSignedIn, isLoaded, user } = useUser()
   const navigate = useNavigate()
   const [step, setStep] = useState(null)
+  const [role, setRole] = useState(null)
 
   useEffect(() => {
     if (!isLoaded) return
     if (!isSignedIn) { navigate('/sign-in'); return }
 
     const savedRole = localStorage.getItem(roleKey(user.id))
-    if (savedRole === 'coach') { navigate('/home'); return }
-    if (savedRole === 'player') { setStep(2); return }
+    const profileDone = localStorage.getItem(profileDoneKey(user.id))
+
+    if (savedRole === 'coach') {
+      if (profileDone) { navigate('/home'); return }
+      setRole('coach')
+      setStep(2)
+      return
+    }
+    if (savedRole === 'player') { setRole('player'); setStep(2); return }
     setStep(1)
   }, [isLoaded, isSignedIn, user, navigate])
+
+  function markDoneAndGo() {
+    localStorage.setItem(profileDoneKey(user.id), 'true')
+    navigate('/home')
+  }
 
   if (step === null) return null
 
@@ -67,15 +84,22 @@ export default function OnboardingPage() {
                 <RoleStep
                   getToken={getToken}
                   userId={user.id}
-                  onCoach={() => navigate('/home')}
-                  onPlayer={() => setStep(2)}
+                  onCoach={() => { setRole('coach'); setStep(2) }}
+                  onPlayer={() => { setRole('player'); setStep(2) }}
                 />
               )}
-              {step === 2 && (
+              {step === 2 && role === 'player' && (
                 <ProfileStep
                   getToken={getToken}
-                  onDone={() => navigate('/home')}
-                  onSkip={() => navigate('/home')}
+                  onDone={markDoneAndGo}
+                  onSkip={markDoneAndGo}
+                />
+              )}
+              {step === 2 && role === 'coach' && (
+                <CoachProfileStep
+                  getToken={getToken}
+                  onDone={markDoneAndGo}
+                  onSkip={markDoneAndGo}
                 />
               )}
             </div>
@@ -146,6 +170,144 @@ function RoleStep({ getToken, userId, onCoach, onPlayer }) {
       {loading && <p className="text-center text-sm text-muted-foreground">Setting up your account…</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
+  )
+}
+
+function CoachProfileStep({ getToken, onDone, onSkip }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', homeCity: '', bio: '' })
+
+  const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
+  const canSave = form.firstName.trim().length > 0
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!canSave || loading) return
+    setLoading(true)
+    setError(null)
+    try {
+      const token = await getToken()
+      const name = [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(' ')
+      const res = await fetch(`${BASE_URL}/coach-profiles`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          homeCity: form.homeCity.trim() || null,
+          bio: form.bio.trim() || null,
+        }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      onDone()
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ animation: 'fadeInUp 0.35s ease both' }}>
+      <p className="mb-2 text-xs font-bold tracking-widest text-primary/60">STEP 2 OF 2</p>
+      <h2 className="font-display mb-2 text-4xl font-bold uppercase leading-none">Your Profile</h2>
+      <p className="mb-8 text-muted-foreground">Only your first name is required. Everything else is optional.</p>
+
+      <div className="space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>First Name *</label>
+            <input
+              type="text"
+              value={form.firstName}
+              onChange={e => update('firstName', e.target.value)}
+              placeholder="Nick"
+              autoComplete="given-name"
+              autoCorrect="off"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Last Name</label>
+            <input
+              type="text"
+              value={form.lastName}
+              onChange={e => update('lastName', e.target.value)}
+              placeholder="Sadd"
+              autoComplete="family-name"
+              autoCorrect="off"
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Email</label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={e => update('email', e.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+            className={inputCls}
+          />
+        </div>
+
+        <div>
+          <label className={labelCls}>Phone</label>
+          <input
+            type="tel"
+            value={form.phone}
+            onChange={e => update('phone', e.target.value)}
+            placeholder="+1 (555) 000-0000"
+            autoComplete="tel"
+            className={inputCls}
+          />
+        </div>
+
+        <div>
+          <label className={labelCls}>Home City</label>
+          <input
+            type="text"
+            value={form.homeCity}
+            onChange={e => update('homeCity', e.target.value)}
+            placeholder="Boston, MA"
+            className={inputCls}
+          />
+        </div>
+
+        <div>
+          <label className={labelCls}>Bio</label>
+          <textarea
+            value={form.bio}
+            onChange={e => update('bio', e.target.value)}
+            placeholder="Tell players a bit about yourself…"
+            rows={3}
+            className={`${inputCls} resize-none`}
+          />
+        </div>
+      </div>
+
+      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={!canSave || loading}
+        className="mt-8 w-full cursor-pointer rounded-lg bg-primary px-6 py-3.5 font-bold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        {loading ? 'Creating Profile…' : 'Create Profile →'}
+      </button>
+
+      <button
+        type="button"
+        onClick={onSkip}
+        className="mt-3 w-full cursor-pointer rounded-lg px-6 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        Skip for now
+      </button>
+    </form>
   )
 }
 
