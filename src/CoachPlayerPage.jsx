@@ -248,10 +248,10 @@ export default function CoachPlayerPage() {
               <WorkloadChart throwingLoad={throwingLoad} sessions={sessions} />
             </section>
 
-            {/* Tracking uploads */}
+            {/* All sessions — bullpen + tracking uploads merged */}
             <section>
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Tracking Sessions</h2>
+                <h2 className="text-lg font-semibold">Sessions</h2>
                 <button
                   onClick={() => setShowUploadPanel(v => !v)}
                   className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/50 transition-colors"
@@ -277,70 +277,85 @@ export default function CoachPlayerPage() {
                 </div>
               )}
 
-              {trackingUploads.length === 0 && !showUploadPanel ? (
-                <p className="text-sm text-muted-foreground">No tracking sessions uploaded yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {trackingUploads.map(u => (
-                    <div key={u.id} className="rounded-xl border border-border bg-card p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">{u.filename}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {u.sessionDate ?? formatDate(u.createdAt)} · {u.pitchCount} pitches
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          {u.deviceType}
-                        </span>
-                      </div>
-                      {u.notes && (
-                        <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{u.notes}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+              {(() => {
+                const merged = [
+                  ...sessions.map(s => ({
+                    _type: 'bullpen',
+                    _sortDate: new Date(s.startedAt ?? s.createdAt),
+                    id: s.id,
+                    date: formatDate(s.startedAt ?? s.createdAt),
+                    pitchCount: s.pitchCount,
+                    score: s.score,
+                    notes: s.notes,
+                  })),
+                  ...trackingUploads.map(u => ({
+                    _type: 'tracking',
+                    _sortDate: new Date(u.sessionDate ?? u.createdAt),
+                    id: u.id,
+                    date: u.sessionDate ?? formatDate(u.createdAt),
+                    pitchCount: u.pitchCount,
+                    deviceType: u.deviceType,
+                    filename: u.filename,
+                    notes: u.notes,
+                  })),
+                ].sort((a, b) => b._sortDate - a._sortDate)
 
-            {/* Bullpen sessions */}
-            <section>
-              <h2 className="mb-4 text-lg font-semibold">Bullpen Sessions</h2>
-              {sessions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No sessions recorded yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {sessions.map(session => (
-                    <button
-                      key={session.id}
-                      onClick={() => navigate(`/bullpen/${session.id}`)}
-                      className="group cursor-pointer rounded-xl border border-border bg-card p-5 text-left transition-all hover:border-primary/50 hover:shadow-md"
-                    >
-                      <div className="mb-3 flex items-start justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(session.startedAt ?? session.createdAt)}
-                          </p>
-                          {session.pitchCount != null && (
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {session.pitchCount} pitch{session.pitchCount !== 1 ? 'es' : ''}
-                            </p>
-                          )}
+                if (merged.length === 0 && !showUploadPanel) {
+                  return <p className="text-sm text-muted-foreground">No sessions recorded yet.</p>
+                }
+
+                return (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {merged.map(item => item._type === 'bullpen' ? (
+                      <button
+                        key={item.id}
+                        onClick={() => navigate(`/bullpen/${item.id}`)}
+                        className="group cursor-pointer rounded-xl border border-border bg-card p-5 text-left transition-all hover:border-primary/50 hover:shadow-md"
+                      >
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground">{item.date}</p>
+                            {item.pitchCount != null && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {item.pitchCount} pitch{item.pitchCount !== 1 ? 'es' : ''}
+                              </p>
+                            )}
+                          </div>
+                          <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(item.score)}`}>
+                            {item.score != null ? Number(item.score).toFixed(1) : '—'}
+                          </span>
                         </div>
-                        <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(session.score)}`}>
-                          {session.score != null ? Number(session.score).toFixed(1) : '—'}
+                        <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                          Bullpen
                         </span>
+                        {item.notes && (
+                          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{item.notes}</p>
+                        )}
+                        <p className="mt-3 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                          View details →
+                        </p>
+                      </button>
+                    ) : (
+                      <div key={item.id} className="rounded-xl border border-border bg-card p-5">
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground">{item.date}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {item.pitchCount} pitch{item.pitchCount !== 1 ? 'es' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="inline-block rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
+                          {item.deviceType ?? 'Tracking'}
+                        </span>
+                        {item.notes && (
+                          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{item.notes}</p>
+                        )}
                       </div>
-                      {session.notes && (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">{session.notes}</p>
-                      )}
-                      <p className="mt-3 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                        View details →
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )
+              })()}
             </section>
           </div>
         )}
