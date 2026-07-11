@@ -8,6 +8,7 @@ import {
 import { Header } from './components/Header'
 import { FloatingEquipment } from './components/FloatingEquipment'
 import { TrackingUpload } from './components/TrackingUpload'
+import { Toast } from './components/Toast'
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
@@ -69,6 +70,7 @@ export default function CoachPlayerPage() {
   const [error, setError] = useState(null)
   const [authToken, setAuthToken] = useState(null)
   const [showUploadPanel, setShowUploadPanel] = useState(false)
+  const [toast, setToast] = useState(null) // { message, onUndo }
 
   useEffect(() => {
     async function fetchAll() {
@@ -122,10 +124,57 @@ export default function CoachPlayerPage() {
     fetchAll()
   }, [profileId, teamId, getToken])
 
+  function showToast(message, onUndo) {
+    setToast({ message, onUndo })
+  }
+
+  async function deleteSession(session) {
+    setSessions(prev => prev.filter(s => s.id !== session.id))
+    await fetch(`${BASE_URL}/bullpen-sessions/${session.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+    showToast('Bullpen session deleted', async () => {
+      await fetch(`${BASE_URL}/bullpen-sessions/${session.id}/restore`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      setSessions(prev => [...prev, session].sort((a, b) =>
+        new Date(b.createdAt) - new Date(a.createdAt)
+      ))
+      setToast(null)
+    })
+  }
+
+  async function deleteUpload(upload) {
+    setTrackingUploads(prev => prev.filter(u => u.id !== upload.id))
+    await fetch(`${BASE_URL}/players/${profileId}/tracking-uploads/${upload.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+    showToast('Tracking session deleted', async () => {
+      await fetch(`${BASE_URL}/players/${profileId}/tracking-uploads/${upload.id}/restore`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      setTrackingUploads(prev => [...prev, upload].sort((a, b) =>
+        new Date(b.createdAt ?? b.sessionDate) - new Date(a.createdAt ?? a.sessionDate)
+      ))
+      setToast(null)
+    })
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
       <FloatingEquipment />
       <Header />
+      {toast && (
+        <Toast
+          message={toast.message}
+          onUndo={toast.onUndo}
+          onDismiss={() => setToast(null)}
+        />
+      )}
 
       <main className="relative z-10 mx-auto max-w-4xl px-6 py-10">
         <button
@@ -327,9 +376,20 @@ export default function CoachPlayerPage() {
                               </p>
                             )}
                           </div>
-                          <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(item.score)}`}>
-                            {item.score != null ? Number(item.score).toFixed(1) : '—'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(item.score)}`}>
+                              {item.score != null ? Number(item.score).toFixed(1) : '—'}
+                            </span>
+                            <button
+                              onClick={e => { e.stopPropagation(); deleteSession(sessions.find(s => s.id === item.id)) }}
+                              className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                              aria-label="Delete session"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4h6v3M3 7h18" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                         <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                           Bullpen
@@ -354,6 +414,15 @@ export default function CoachPlayerPage() {
                               {item.pitchCount} pitch{item.pitchCount !== 1 ? 'es' : ''}
                             </p>
                           </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); deleteUpload(trackingUploads.find(u => u.id === item.id)) }}
+                            className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                            aria-label="Delete session"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4h6v3M3 7h18" />
+                            </svg>
+                          </button>
                         </div>
                         <span className="inline-block rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
                           {item.deviceType ?? 'Tracking'}

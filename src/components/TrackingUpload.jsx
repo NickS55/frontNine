@@ -32,6 +32,8 @@ const TM_MAP = {
   ExitSpeed:          'exitSpeed',
   Angle:              'launchAngle',
   Date:               '_date',
+  Pitcher:            '_pitcher',
+  PitcherId:          '_pitcherId',
 }
 
 const NUMERIC_FIELDS = new Set([
@@ -140,8 +142,9 @@ function pitchTypeSummary(pitches) {
 
 export function TrackingUpload({ playerId, authToken, onSuccess }) {
   const inputRef = useRef(null)
-  const [state, setState] = useState('idle') // idle | parsed | uploading | done | error
-  const [parsed, setParsed] = useState(null)   // { pitches, filename, sessionDate, device }
+  const [state, setState]   = useState('idle') // idle | selecting | parsed | uploading | done
+  const [raw, setRaw]       = useState(null)   // { allPitches, csvText, filename, sessionDate, device, pitcherOptions }
+  const [parsed, setParsed] = useState(null)   // { pitches, csvText, filename, sessionDate, device }
   const [error, setError]   = useState(null)
   const [notes, setNotes]   = useState('')
 
@@ -162,12 +165,27 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
             return
           }
 
-          const pitches = data.map(row => parseRow(row, TM_MAP))
-          const sessionDate = extractSessionDate(pitches)
-          const clean = pitches.map(({ _date, ...rest }) => rest)
+          const allPitches  = data.map(row => parseRow(row, TM_MAP))
+          const sessionDate = extractSessionDate(allPitches)
 
-          setParsed({ pitches: clean, csvText, filename: file.name, sessionDate, device })
-          setState('parsed')
+          // Collect unique pitchers by name
+          const pitcherMap = {}
+          for (const p of allPitches) {
+            const name = p._pitcher
+            if (!name) continue
+            if (!pitcherMap[name]) pitcherMap[name] = { name, id: p._pitcherId ?? null, count: 0 }
+            pitcherMap[name].count++
+          }
+          const pitcherOptions = Object.values(pitcherMap).sort((a, b) => b.count - a.count)
+
+          setRaw({ allPitches, csvText, filename: file.name, sessionDate, device, pitcherOptions })
+
+          if (pitcherOptions.length <= 1) {
+            // Only one pitcher (or column missing) — skip selection
+            commitPitcher(pitcherOptions[0]?.name ?? null, allPitches, csvText, file.name, sessionDate, device)
+          } else {
+            setState('selecting')
+          }
         },
         error(err) {
           setError(`Parse error: ${err.message}`)
@@ -175,6 +193,20 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
       })
     }
     reader.readAsText(file)
+  }
+
+  function commitPitcher(pitcherName, allPitches, csvText, filename, sessionDate, device) {
+    const pitches = pitcherName
+      ? allPitches.filter(p => p._pitcher === pitcherName)
+      : allPitches
+    const clean = pitches.map(({ _date, _pitcher, _pitcherId, ...rest }) => rest)
+    setParsed({ pitches: clean, csvText, filename, sessionDate, device, pitcherName })
+    setState('parsed')
+  }
+
+  function selectPitcher(name) {
+    const { allPitches, csvText, filename, sessionDate, device } = raw
+    commitPitcher(name, allPitches, csvText, filename, sessionDate, device)
   }
 
   async function handleSubmit() {
@@ -215,6 +247,7 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
 
   function reset() {
     setState('idle')
+    setRaw(null)
     setParsed(null)
     setError(null)
     setNotes('')
@@ -222,6 +255,43 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (state === 'selecting') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-foreground">{raw.filename}</p>
+            <p className="text-sm text-muted-foreground">
+              {raw.pitcherOptions.length} pitchers found — select one to upload
+            </p>
+          </div>
+          <button onClick={reset} className="text-xs text-muted-foreground hover:text-foreground">
+            Change file
+          </button>
+        </div>
+
+        <div className="grid gap-2">
+          {raw.pitcherOptions.map(pitcher => (
+            <button
+              key={pitcher.name}
+              onClick={() => selectPitcher(pitcher.name)}
+              className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left hover:border-primary/50 hover:bg-card/80 transition-colors"
+            >
+              <span className="font-medium text-foreground">{pitcher.name}</span>
+              <span className="text-sm text-muted-foreground tabular-nums">{pitcher.count} pitches</span>
+            </button>
+          ))}
+        </div>
+
+        {error && (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+    )
+  }
 
   if (state === 'done') {
     return (
@@ -273,13 +343,21 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
             <div>
               <p className="font-semibold text-foreground">{parsed.filename}</p>
               <p className="text-sm text-muted-foreground">
+                {parsed.pitcherName && <><span className="text-foreground font-medium">{parsed.pitcherName}</span> · </>}
                 {parsed.pitches.length} pitches · {parsed.device}
                 {parsed.sessionDate && ` · ${parsed.sessionDate}`}
               </p>
             </div>
-            <button onClick={reset} className="text-xs text-muted-foreground hover:text-foreground">
-              Change file
-            </button>
+            <div className="flex gap-3">
+              {raw?.pitcherOptions?.length > 1 && (
+                <button onClick={() => setState('selecting')} className="text-xs text-muted-foreground hover:text-foreground">
+                  Change pitcher
+                </button>
+              )}
+              <button onClick={reset} className="text-xs text-muted-foreground hover:text-foreground">
+                Change file
+              </button>
+            </div>
           </div>
 
           {/* Pitch type breakdown */}
