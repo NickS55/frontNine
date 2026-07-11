@@ -139,7 +139,7 @@ function pitchTypeSummary(pitches) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function TrackingUpload({ playerId, authToken, onSuccess }) {
-  const inputRef  = useRef(null)
+  const inputRef = useRef(null)
   const [state, setState] = useState('idle') // idle | parsed | uploading | done | error
   const [parsed, setParsed] = useState(null)   // { pitches, filename, sessionDate, device }
   const [error, setError]   = useState(null)
@@ -149,38 +149,38 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
     if (!file) return
     setError(null)
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete({ data, meta }) {
-        const device = detectDevice(meta.fields ?? [])
-        if (!device) {
-          setError('Unrecognised file format. Expected a TrackMan CSV (must contain RelSpeed, SpinRate, InducedVertBreak, TaggedPitchType columns).')
-          return
-        }
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const csvText = e.target.result
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete({ data, meta }) {
+          const device = detectDevice(meta.fields ?? [])
+          if (!device) {
+            setError('Unrecognised file format. Expected a TrackMan CSV (must contain RelSpeed, SpinRate, InducedVertBreak, TaggedPitchType columns).')
+            return
+          }
 
-        const pitches = data.map(row => parseRow(row, TM_MAP))
-        const sessionDate = extractSessionDate(pitches)
-        // Strip internal _date field from pitches before sending
-        const clean = pitches.map(({ _date, ...rest }) => rest)
+          const pitches = data.map(row => parseRow(row, TM_MAP))
+          const sessionDate = extractSessionDate(pitches)
+          const clean = pitches.map(({ _date, ...rest }) => rest)
 
-        setParsed({ pitches: clean, filename: file.name, sessionDate, device })
-        setState('parsed')
-      },
-      error(err) {
-        setError(`Parse error: ${err.message}`)
-      },
-    })
+          setParsed({ pitches: clean, csvText, filename: file.name, sessionDate, device })
+          setState('parsed')
+        },
+        error(err) {
+          setError(`Parse error: ${err.message}`)
+        },
+      })
+    }
+    reader.readAsText(file)
   }
 
   async function handleSubmit() {
     if (!parsed) return
     setState('uploading')
     setError(null)
-
-    // Re-read the file for csvText — read from the input again if still available
-    const file = inputRef.current?.files?.[0]
-    const csvText = file ? await file.text() : ''
 
     try {
       const apiBase = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
@@ -193,7 +193,7 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
         body: JSON.stringify({
           deviceType:  parsed.device,
           filename:    parsed.filename,
-          csvText,
+          csvText:     parsed.csvText,
           sessionDate: parsed.sessionDate,
           notes:       notes || undefined,
           pitches:     parsed.pitches,
