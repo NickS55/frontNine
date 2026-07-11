@@ -7,6 +7,9 @@ import AdminPage from './AdminPage'
 import BullpenSessionPage from './BullpenSessionPage'
 import PitchDnaPage from './PitchDnaPage'
 import InvitePage from './InvitePage'
+import CoachPlayerPage from './CoachPlayerPage'
+import TrackingSessionPage from './TrackingSessionPage'
+import NotFoundPage from './NotFoundPage'
 import './App.css'
 
 export default function App() {
@@ -20,6 +23,9 @@ export default function App() {
       <Route path="/bullpen/:sessionId" element={<BullpenSessionPage />} />
       <Route path="/pitch-dna" element={<PitchDnaPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route path="/coach/player/:profileId" element={<CoachPlayerPage />} />
+      <Route path="/tracking-uploads/:uploadId" element={<TrackingSessionPage />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

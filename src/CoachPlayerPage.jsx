@@ -248,6 +248,12 @@ export default function CoachPlayerPage() {
               <WorkloadChart throwingLoad={throwingLoad} sessions={sessions} />
             </section>
 
+            {/* Velocity + score over time */}
+            <section>
+              <h2 className="mb-4 text-lg font-semibold">Performance Trends</h2>
+              <PerformanceChart sessions={sessions} />
+            </section>
+
             {/* All sessions — bullpen + tracking uploads merged */}
             <section>
               <div className="mb-4 flex items-center justify-between">
@@ -336,7 +342,11 @@ export default function CoachPlayerPage() {
                         </p>
                       </button>
                     ) : (
-                      <div key={item.id} className="rounded-xl border border-border bg-card p-5">
+                      <button
+                        key={item.id}
+                        className="group w-full rounded-xl border border-border bg-card p-5 text-left transition-colors hover:border-amber-500/40 hover:bg-card/80"
+                        onClick={() => navigate(`/tracking-uploads/${item.id}`)}
+                      >
                         <div className="mb-2 flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-xs text-muted-foreground">{item.date}</p>
@@ -351,7 +361,10 @@ export default function CoachPlayerPage() {
                         {item.notes && (
                           <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{item.notes}</p>
                         )}
-                      </div>
+                        <p className="mt-3 text-xs font-medium text-amber-500 opacity-0 transition-opacity group-hover:opacity-100">
+                          View pitches →
+                        </p>
+                      </button>
                     ))}
                   </div>
                 )
@@ -555,6 +568,115 @@ function WorkloadChart({ throwingLoad, sessions }) {
         <span style={{ color: '#d4a843' }}>— — undercooked (&lt;0.8)</span>
         <span className="ml-auto opacity-60">EWMA ACWR · throws weighted by type &amp; intensity</span>
       </div>
+    </div>
+  )
+}
+
+// ── Performance chart (velocity + score over time) ────────────────────────────
+
+function PerformanceChart({ sessions }) {
+  const data = sessions
+    .filter(s => s.fbVelocity != null || s.score != null)
+    .map(s => ({
+      label: new Date(s.startedAt ?? s.createdAt).toLocaleDateString(undefined, {
+        month: 'short', day: 'numeric',
+      }),
+      velo:  s.fbVelocity != null ? Number(s.fbVelocity) : null,
+      score: s.score != null ? Number(s.score) : null,
+    }))
+    .reverse()
+
+  if (!data.length) {
+    return <p className="text-sm text-muted-foreground">No bullpen session data yet.</p>
+  }
+
+  const fbVelos = data.map(d => d.velo).filter(Boolean)
+  const veloMin = fbVelos.length ? Math.floor(Math.min(...fbVelos) - 2) : 80
+  const veloMax = fbVelos.length ? Math.ceil(Math.max(...fbVelos) + 2) : 100
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">Per bullpen session — FB velocity (left) and location score (right)</p>
+        <div className="flex items-center gap-5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-px w-5 rounded" style={{ background: '#4a9eff' }} />
+            FB Velo
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-px w-5 rounded" style={{ background: '#a78bfa' }} />
+            Score
+          </span>
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={200}>
+        <ComposedChart data={data} margin={{ top: 8, right: 48, bottom: 0, left: 0 }}>
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10, fill: '#8ea0bc' }}
+            tickLine={false}
+            axisLine={false}
+            interval="preserveStartEnd"
+          />
+          <YAxis
+            yAxisId="velo"
+            orientation="left"
+            domain={[veloMin, veloMax]}
+            tick={{ fontSize: 10, fill: '#8ea0bc' }}
+            tickLine={false}
+            axisLine={false}
+            width={32}
+            unit=" mph"
+            tickFormatter={v => v}
+          />
+          <YAxis
+            yAxisId="score"
+            orientation="right"
+            domain={[0, 100]}
+            ticks={[0, 25, 50, 75, 100]}
+            tick={{ fontSize: 10, fill: '#8ea0bc' }}
+            tickLine={false}
+            axisLine={false}
+            width={32}
+          />
+          <Tooltip
+            contentStyle={{
+              background: 'hsl(220 13% 12%)',
+              border: '1px solid hsl(220 13% 22%)',
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+            labelStyle={{ color: '#8ea0bc', marginBottom: 4 }}
+            formatter={(value, name) =>
+              name === 'velo'
+                ? [`${Number(value).toFixed(1)} mph`, 'FB Velo']
+                : [`${Number(value).toFixed(1)}`, 'Score']
+            }
+          />
+          <Line
+            yAxisId="velo"
+            dataKey="velo"
+            type="monotone"
+            stroke="#4a9eff"
+            strokeWidth={2}
+            dot={{ r: 3, fill: '#4a9eff', strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            connectNulls={false}
+          />
+          <Line
+            yAxisId="score"
+            dataKey="score"
+            type="monotone"
+            stroke="#a78bfa"
+            strokeWidth={2}
+            dot={{ r: 3, fill: '#a78bfa', strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            connectNulls={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
     </div>
   )
 }
