@@ -183,7 +183,7 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
     const csvText = file ? await file.text() : ''
 
     try {
-      const apiBase = import.meta.env.VITE_API_URL
+      const apiBase = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
       const res = await fetch(`${apiBase}/players/${playerId}/tracking-uploads`, {
         method:  'POST',
         headers: {
