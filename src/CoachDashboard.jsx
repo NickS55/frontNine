@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { useNavigate } from 'react-router-dom'
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
@@ -21,6 +22,43 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric',
   })
+}
+
+function ResendInviteButton({ inviteId, teamId }) {
+  const { getToken } = useAuth()
+  const [state, setState] = useState('idle') // 'idle' | 'sending' | 'sent' | 'error'
+
+  async function handleResend() {
+    if (state === 'sending' || state === 'sent') return
+    setState('sending')
+    try {
+      const token = await getToken()
+      const res = await fetch(`${BASE_URL}/teams/invite/${inviteId}/resend`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setState(res.ok ? 'sent' : 'error')
+      if (res.ok) setTimeout(() => setState('idle'), 3000)
+    } catch {
+      setState('error')
+    }
+  }
+
+  return (
+    <button
+      onClick={handleResend}
+      disabled={state === 'sending' || state === 'sent'}
+      className={`shrink-0 cursor-pointer rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-default ${
+        state === 'sent'
+          ? 'border-primary/30 text-primary'
+          : state === 'error'
+          ? 'border-destructive/30 text-destructive'
+          : 'border-border text-muted-foreground hover:border-primary hover:text-primary'
+      }`}
+    >
+      {state === 'sending' ? '…' : state === 'sent' ? 'Sent!' : state === 'error' ? 'Failed' : 'Resend'}
+    </button>
+  )
 }
 
 function InviteForm({ teamId, onInvited }) {
@@ -108,6 +146,7 @@ function StatCard({ label, value, accent }) {
 
 export default function CoachDashboard() {
   const { getToken } = useAuth()
+  const navigate = useNavigate()
 
   const [teams, setTeams] = useState(null)
   const [teamId, setTeamId] = useState(null)
@@ -291,7 +330,11 @@ export default function CoachDashboard() {
                 {workload.map(arm => {
                   const status = WORKLOAD_STATUS[arm.status] ?? WORKLOAD_STATUS.insufficient_history
                   return (
-                    <tr key={arm.playerId} className="border-b border-border/50 last:border-0">
+                    <tr
+                      key={arm.playerId}
+                      onClick={() => navigate(`/coach/player/${arm.playerId}?teamId=${teamId}`)}
+                      className="border-b border-border/50 last:border-0 cursor-pointer hover:bg-muted/30 transition-colors"
+                    >
                       <td className="px-4 py-3 font-medium">
                         {arm.jerseyNumber != null && (
                           <span className="mr-2 font-mono text-xs text-muted-foreground">#{arm.jerseyNumber}</span>
@@ -371,12 +414,6 @@ export default function CoachDashboard() {
         </section>
       )}
 
-      {/* Invite player */}
-      <section>
-        <h2 className="mb-4 text-lg font-semibold">Invite Player</h2>
-        <InviteForm teamId={teamId} onInvited={(player) => setRoster(prev => [...prev, player])} />
-      </section>
-
       {/* Roster */}
       <section>
         <h2 className="mb-4 text-lg font-semibold">Roster</h2>
@@ -390,8 +427,11 @@ export default function CoachDashboard() {
             {roster.map(player => (
               <div
                 key={player.id}
-                className={`flex items-center gap-3 rounded-xl border border-border bg-card p-4 ${
-                  player.isPending ? 'opacity-60' : ''
+                onClick={!player.isPending ? () => navigate(`/coach/player/${player.id}?teamId=${teamId}`) : undefined}
+                className={`flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-all ${
+                  player.isPending
+                    ? 'opacity-70'
+                    : 'cursor-pointer hover:border-primary/50 hover:shadow-md'
                 }`}
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-sm font-bold text-primary">
@@ -400,7 +440,10 @@ export default function CoachDashboard() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{player.name}</p>
                   {player.isPending ? (
-                    <p className="text-xs text-muted-foreground">Invite pending</p>
+                    <>
+                      <p className="truncate text-xs text-muted-foreground">{player.email}</p>
+                      <p className="text-xs text-yellow-500">Invite pending</p>
+                    </>
                   ) : player.positions.length > 0 ? (
                     <div className="mt-0.5 flex flex-wrap gap-1">
                       {player.positions.map(pos => (
@@ -411,10 +454,19 @@ export default function CoachDashboard() {
                     </div>
                   ) : null}
                 </div>
+                {player.isPending && (
+                  <ResendInviteButton inviteId={player.id} teamId={teamId} />
+                )}
               </div>
             ))}
           </div>
         )}
+      </section>
+
+      {/* Invite player */}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold">Invite Player</h2>
+        <InviteForm teamId={teamId} onInvited={(player) => setRoster(prev => [...prev, player])} />
       </section>
     </div>
   )

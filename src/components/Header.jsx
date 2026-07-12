@@ -1,27 +1,46 @@
 import { useUser, UserButton } from '@clerk/clerk-react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, NavLink } from 'react-router-dom'
 import { Logo } from './Logo'
+import { roleKey } from '../OnboardingPage'
+
+const navLinkCls = ({ isActive }) =>
+  `text-sm font-medium transition-colors ${
+    isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary'
+  }`
 
 export function Header() {
   const { isSignedIn, user } = useUser()
   const navigate = useNavigate()
 
+  const role = isSignedIn && user
+    ? localStorage.getItem(roleKey(user.id))
+    : null
+
   return (
     <header className="relative z-10 bg-background/95 backdrop-blur-sm shadow-[0_1px_0_0_oklch(0.83_0.17_86_/_0.35)]">
       <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
-        <Link to="/" className="flex items-center gap-3 no-underline">
+
+        {/* Brand */}
+        <NavLink to="/" className="flex items-center gap-3 no-underline">
           <Logo className="h-9 w-auto text-primary" />
           <span className="font-display text-xl font-bold tracking-wide text-foreground uppercase">
             All Nine Sports
           </span>
-        </Link>
+        </NavLink>
 
+        {/* Nav links */}
         <nav className="hidden sm:flex items-center gap-6">
-          <Link to="/pitch-dna" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+          {isSignedIn && (
+            <NavLink to="/home" className={navLinkCls}>
+              {role === 'coach' ? 'Coach Hub' : 'Dashboard'}
+            </NavLink>
+          )}
+          <NavLink to="/pitch-dna" className={navLinkCls}>
             MLB Comp
-          </Link>
+          </NavLink>
         </nav>
 
+        {/* Right side */}
         <div className="flex items-center gap-3">
           {isSignedIn ? (
             <>
@@ -39,6 +58,7 @@ export function Header() {
             </button>
           )}
         </div>
+
       </div>
     </header>
   )

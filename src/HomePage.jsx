@@ -36,6 +36,206 @@ function heightDisplay(cm) {
   return `${feet}'${inches}"`
 }
 
+function sorenessColor(v) {
+  if (v == null) return 'text-muted-foreground'
+  if (v <= 3) return 'text-primary'
+  if (v <= 6) return 'text-yellow-500'
+  return 'text-destructive'
+}
+
+function readinessColor(v) {
+  if (v == null) return 'text-muted-foreground'
+  if (v >= 7) return 'text-primary'
+  if (v >= 4) return 'text-yellow-500'
+  return 'text-destructive'
+}
+
+function CheckInBar({ value, reversed = false }) {
+  const pct = ((value - 1) / 9) * 100
+  const color = reversed ? sorenessColor(value) : readinessColor(value)
+  const barColor = color === 'text-primary' ? 'bg-primary' : color === 'text-yellow-500' ? 'bg-yellow-500' : 'bg-destructive'
+  return (
+    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+      <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+function CheckInCard({ getToken, profileId, onSaved }) {
+  const [checkin, setCheckin] = useState(null)       // today's saved check-in
+  const [loadingCheckin, setLoadingCheckin] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [soreness, setSoreness] = useState(3)
+  const [readiness, setReadiness] = useState(8)
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+
+  useEffect(() => {
+    async function fetchToday() {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${BASE_URL}/players/me/checkin/today`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setCheckin(data)
+          setSoreness(data.soreness)
+          setReadiness(data.readiness)
+          setNotes(data.notes ?? '')
+        }
+        // 404 = no check-in yet, leave checkin null
+      } finally {
+        setLoadingCheckin(false)
+      }
+    }
+    fetchToday()
+  }, [getToken])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${BASE_URL}/players/me/checkin`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ soreness, readiness, notes: notes.trim() || undefined }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Failed to save')
+      }
+      const data = await res.json()
+      setCheckin(data)
+      setEditing(false)
+      if (onSaved) onSaved(data)
+    } catch (err) {
+      setSaveError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loadingCheckin) return null
+
+  const showForm = !checkin || editing
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Daily Check-in</h2>
+        {checkin && !editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="cursor-pointer text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Edit
+          </button>
+        )}
+        {checkin && editing && (
+          <button
+            onClick={() => { setEditing(false); setSoreness(checkin.soreness); setReadiness(checkin.readiness); setNotes(checkin.notes ?? '') }}
+            className="cursor-pointer text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+
+      {/* Saved state — summary view */}
+      {!showForm && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="w-20 shrink-0 text-sm text-muted-foreground">Readiness</span>
+            <CheckInBar value={checkin.readiness} />
+            <span className={`w-10 text-right text-sm font-bold tabular-nums ${readinessColor(checkin.readiness)}`}>
+              {checkin.readiness}/10
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-20 shrink-0 text-sm text-muted-foreground">Soreness</span>
+            <CheckInBar value={checkin.soreness} reversed />
+            <span className={`w-10 text-right text-sm font-bold tabular-nums ${sorenessColor(checkin.soreness)}`}>
+              {checkin.soreness}/10
+            </span>
+          </div>
+          {checkin.notes && (
+            <p className="mt-1 text-sm text-muted-foreground italic">"{checkin.notes}"</p>
+          )}
+        </div>
+      )}
+
+      {/* Form — first check-in or editing */}
+      {showForm && (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {!checkin && (
+            <p className="text-sm text-muted-foreground">How's your arm feeling today?</p>
+          )}
+
+          {/* Soreness slider */}
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-sm font-medium">Soreness</label>
+              <span className={`text-sm font-bold tabular-nums ${sorenessColor(soreness)}`}>{soreness}/10</span>
+            </div>
+            <input
+              type="range" min="1" max="10" step="1"
+              value={soreness}
+              onChange={e => setSoreness(Number(e.target.value))}
+              className="w-full cursor-pointer accent-primary"
+            />
+            <div className="mt-0.5 flex justify-between text-[10px] text-muted-foreground">
+              <span>none</span><span>severe</span>
+            </div>
+          </div>
+
+          {/* Readiness slider */}
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-sm font-medium">Readiness</label>
+              <span className={`text-sm font-bold tabular-nums ${readinessColor(readiness)}`}>{readiness}/10</span>
+            </div>
+            <input
+              type="range" min="1" max="10" step="1"
+              value={readiness}
+              onChange={e => setReadiness(Number(e.target.value))}
+              className="w-full cursor-pointer accent-primary"
+            />
+            <div className="mt-0.5 flex justify-between text-[10px] text-muted-foreground">
+              <span>not ready</span><span>ready to go</span>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Notes <span className="font-normal text-muted-foreground">(optional)</span></label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Anything unusual? Tightness, fatigue, soreness location…"
+              rows={2}
+              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+
+          {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full cursor-pointer rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : checkin ? 'Update Check-in' : 'Log Check-in'}
+          </button>
+        </form>
+      )}
+    </section>
+  )
+}
+
 export default function HomePage() {
   const { getToken } = useAuth()
   const { isSignedIn, isLoaded, user } = useUser()
@@ -189,6 +389,8 @@ export default function HomePage() {
                 </div>
               </div>
             </section>
+
+            <CheckInCard getToken={getToken} profileId={profile.id} />
 
             {/* Best bullpens */}
             <section>
