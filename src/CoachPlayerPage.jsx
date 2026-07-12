@@ -92,6 +92,7 @@ export default function CoachPlayerPage() {
   const [throwingLoad, setThrowingLoad] = useState([])
   const [trackingUploads, setTrackingUploads] = useState([])
   const [assignments, setAssignments] = useState([])
+  const [armReadiness, setArmReadiness] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [authToken, setAuthToken] = useState(null)
@@ -114,12 +115,13 @@ export default function CoachPlayerPage() {
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
         const fromDate = ninetyDaysAgo.toISOString().slice(0, 10)
 
-        const [profileRes, sessionsRes, loadRes, uploadsRes, assignmentsRes] = await Promise.all([
+        const [profileRes, sessionsRes, loadRes, uploadsRes, assignmentsRes, readinessRes] = await Promise.all([
           fetch(`${BASE_URL}/players/${profileId}`, { headers }),
           fetch(`${BASE_URL}/players/${profileId}/bullpen-sessions`, { headers }),
           fetch(`${BASE_URL}/players/${profileId}/throwing-load?from=${fromDate}`, { headers }),
           fetch(`${BASE_URL}/players/${profileId}/tracking-uploads`, { headers }),
           fetch(`${BASE_URL}/players/${profileId}/assignments`, { headers }),
+          fetch(`${BASE_URL}/players/${profileId}/arm-readiness?from=${fromDate}`, { headers }),
         ])
 
         if (!profileRes.ok) throw new Error(`Could not load player profile (${profileRes.status})`)
@@ -141,6 +143,11 @@ export default function CoachPlayerPage() {
 
         if (assignmentsRes.ok) {
           setAssignments(await assignmentsRes.json())
+        }
+
+        if (readinessRes.ok) {
+          const readinessData = await readinessRes.json()
+          setArmReadiness([...readinessData].sort((a, b) => new Date(a.checkDate) - new Date(b.checkDate)))
         }
 
         if (teamId) {
@@ -469,7 +476,19 @@ export default function CoachPlayerPage() {
             </section>
 
             {/* Arm status */}
-            {workload && (
+            {workload && (() => {
+              // The workload endpoint returns the latest check-in *ever* — flag
+              // readiness/soreness as stale when there's no check-in from today,
+              // so a coach never mistakes old numbers for current arm status.
+              const lastCheckIn = armReadiness.length ? armReadiness[armReadiness.length - 1] : null
+              const lastCheckDate = lastCheckIn ? String(lastCheckIn.checkDate).slice(0, 10) : null
+              const checkinStale = lastCheckDate !== new Date().toISOString().slice(0, 10)
+              const staleNote = (
+                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-semibold text-yellow-500">
+                  Last check-in {lastCheckDate ? formatDateShort(lastCheckDate) : 'over 90 days ago'}
+                </span>
+              )
+              return (
               <section>
                 <h2 className="mb-4 text-lg font-semibold">Arm Status</h2>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -486,7 +505,13 @@ export default function CoachPlayerPage() {
                       )
                     })()}
                   />
-                  <ArmStat label="Throws (7d)" value={workload.throws7d ?? '—'} />
+                  <ArmStat
+                    label="Readiness"
+                    value={workload.readiness != null ? `${workload.readiness}/10` : '—'}
+                    accent={checkinStale ? 'text-muted-foreground' :
+                      workload.readiness <= 3 ? 'text-destructive' : workload.readiness <= 6 ? 'text-yellow-500' : 'text-primary'}
+                    sub={checkinStale && workload.readiness != null ? staleNote : null}
+                  />
                   <ArmStat
                     label="Rest Days"
                     value={restDays(workload.lastOuting) ?? '—'}
@@ -495,24 +520,20 @@ export default function CoachPlayerPage() {
                   <ArmStat
                     label="Soreness"
                     value={workload.soreness != null ? `${workload.soreness}/10` : '—'}
-                    accent={workload.soreness >= 7 ? 'text-destructive' : workload.soreness >= 4 ? 'text-yellow-500' : undefined}
+                    accent={checkinStale ? 'text-muted-foreground' :
+                      workload.soreness >= 7 ? 'text-destructive' : workload.soreness >= 4 ? 'text-yellow-500' : undefined}
+                    sub={checkinStale && workload.soreness != null ? staleNote : null}
                   />
                 </div>
-                {workload.readiness != null && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <p className="text-sm text-muted-foreground">Readiness</p>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          workload.readiness >= 7 ? 'bg-primary' :
-                          workload.readiness >= 4 ? 'bg-yellow-500' : 'bg-destructive'
-                        }`}
-                        style={{ width: `${(workload.readiness / 10) * 100}%` }}
-                      />
-                    </div>
-                    <p className="w-8 text-right text-sm font-medium tabular-nums">{workload.readiness}/10</p>
-                  </div>
-                )}
+              </section>
+              )
+            })()}
+
+            {/* Readiness & soreness over time */}
+            {armReadiness.length > 0 && (
+              <section>
+                <h2 className="mb-4 text-lg font-semibold">Readiness &amp; Soreness</h2>
+                <ReadinessChart entries={armReadiness} />
               </section>
             )}
 
@@ -966,6 +987,83 @@ function PerformanceChart({ sessions }) {
             stroke="#a78bfa"
             strokeWidth={2}
             dot={{ r: 3, fill: '#a78bfa', strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            connectNulls={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ── Readiness & soreness chart (arm check-in history) ─────────────────────────
+
+function ReadinessChart({ entries }) {
+  const data = entries.map(e => ({
+    label: new Date(e.checkDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    readiness: e.readiness ?? null,
+    soreness:  e.soreness  ?? null,
+  }))
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">Daily arm check-ins — 1 (low) to 10 (high)</p>
+        <div className="flex items-center gap-5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-px w-5 rounded" style={{ background: '#4ade80' }} />
+            Readiness
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-px w-5 rounded" style={{ background: '#e05530' }} />
+            Soreness
+          </span>
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={200}>
+        <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10, fill: '#8ea0bc' }}
+            tickLine={false}
+            axisLine={false}
+            interval="preserveStartEnd"
+          />
+          <YAxis
+            domain={[0, 10]}
+            ticks={[0, 2, 4, 6, 8, 10]}
+            tick={{ fontSize: 10, fill: '#8ea0bc' }}
+            tickLine={false}
+            axisLine={false}
+            width={24}
+          />
+          <Tooltip
+            contentStyle={{
+              background: 'hsl(220 13% 12%)',
+              border: '1px solid hsl(220 13% 22%)',
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+            labelStyle={{ color: '#8ea0bc', marginBottom: 4 }}
+            formatter={(value, name) => [value, name === 'readiness' ? 'Readiness' : 'Soreness']}
+          />
+          <Line
+            dataKey="readiness"
+            type="monotone"
+            stroke="#4ade80"
+            strokeWidth={2}
+            dot={{ r: 3, fill: '#4ade80', strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            connectNulls={false}
+          />
+          <Line
+            dataKey="soreness"
+            type="monotone"
+            stroke="#e05530"
+            strokeWidth={2}
+            dot={{ r: 3, fill: '#e05530', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             connectNulls={false}
           />

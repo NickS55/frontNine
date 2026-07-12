@@ -329,6 +329,9 @@ export default function CoachDashboard() {
               <tbody>
                 {workload.map(arm => {
                   const status = WORKLOAD_STATUS[arm.status] ?? WORKLOAD_STATUS.insufficient_history
+                  const today = new Date().toISOString().slice(0, 10)
+                  const checkinDate = arm.readinessCheckDate ? String(arm.readinessCheckDate).slice(0, 10) : null
+                  const checkinStale = checkinDate !== today
                   return (
                     <tr
                       key={arm.playerId}
@@ -353,13 +356,21 @@ export default function CoachDashboard() {
                       <td className="px-4 py-3 text-right tabular-nums">
                         {arm.daysRest != null ? arm.daysRest : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        {arm.readiness != null ? `${arm.readiness}/10` : '—'}
+                      <td className={`px-4 py-3 text-right tabular-nums ${checkinStale && arm.readiness != null ? 'text-muted-foreground' : ''}`}>
+                        {arm.readiness != null ? (
+                          <span title={checkinStale ? `Last check-in ${formatDate(checkinDate)}` : undefined}>
+                            {arm.readiness}/10{checkinStale && ' ⚠️'}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td className={`px-4 py-3 text-right tabular-nums ${
-                        arm.soreness != null && arm.soreness >= 4 ? 'font-semibold text-destructive' : ''
+                        checkinStale ? 'text-muted-foreground' : arm.soreness != null && arm.soreness >= 4 ? 'font-semibold text-destructive' : ''
                       }`}>
-                        {arm.soreness != null ? `${arm.soreness}/10` : '—'}
+                        {arm.soreness != null ? (
+                          <span title={checkinStale ? `Last check-in ${formatDate(checkinDate)}` : undefined}>
+                            {arm.soreness}/10{checkinStale && ' ⚠️'}
+                          </span>
+                        ) : '—'}
                       </td>
                     </tr>
                   )
