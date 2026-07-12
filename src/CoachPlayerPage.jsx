@@ -25,6 +25,31 @@ const WORKLOAD_STATUS = {
   insufficient_history: { label: 'No history', badge: 'bg-muted text-muted-foreground',        dot: 'bg-muted-foreground' },
 }
 
+// Mirrors backend's throw_load_type enum (backNine/src/migrations/021_throwing_workload.sql),
+// minus 'game' — a coach assigns training, not a scheduled game.
+const LOAD_TYPES = [
+  { value: 'bullpen',     label: 'Bullpen' },
+  { value: 'long_toss',   label: 'Long Toss' },
+  { value: 'flat_ground', label: 'Flat Ground' },
+  { value: 'plyo',        label: 'Plyo / Weighted' },
+  { value: 'warmup',      label: 'Warm-up' },
+  { value: 'recovery',    label: 'Recovery' },
+  { value: 'pulldown',    label: 'Pull-downs' },
+  { value: 'live_ab',     label: 'Live ABs' },
+  { value: 'other',       label: 'Other' },
+]
+
+// Mirrors backend's throw_intensity enum.
+const INTENSITIES = ['low', 'medium', 'high', 'max']
+
+function loadTypeLabel(value) {
+  return LOAD_TYPES.find(t => t.value === value)?.label ?? value
+}
+
+function throwUnitLabel(loadType) {
+  return loadType === 'bullpen' ? 'pitches' : 'throws'
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -72,7 +97,9 @@ export default function CoachPlayerPage() {
   const [authToken, setAuthToken] = useState(null)
   const [showUploadPanel, setShowUploadPanel] = useState(false)
   const [showAssignForm, setShowAssignForm] = useState(false)
-  const [assignForm, setAssignForm] = useState({ title: '', targetCount: 2, notes: '', dueDate: '' })
+  const [assignForm, setAssignForm] = useState({
+    title: '', loadType: 'bullpen', intensity: 'high', targetThrowCount: 25, notes: '', dueDate: '',
+  })
   const [isSavingAssignment, setIsSavingAssignment] = useState(false)
   const [toast, setToast] = useState(null) // { message, onUndo }
 
@@ -186,7 +213,9 @@ export default function CoachPlayerPage() {
         },
         body: JSON.stringify({
           title: assignForm.title.trim(),
-          targetCount: Number(assignForm.targetCount) || 1,
+          loadType: assignForm.loadType,
+          intensity: assignForm.intensity,
+          targetThrowCount: Number(assignForm.targetThrowCount) || 1,
           notes: assignForm.notes.trim() || undefined,
           dueDate: assignForm.dueDate || undefined,
         }),
@@ -194,7 +223,7 @@ export default function CoachPlayerPage() {
       if (res.ok) {
         const created = await res.json()
         setAssignments(prev => [created, ...prev])
-        setAssignForm({ title: '', targetCount: 2, notes: '', dueDate: '' })
+        setAssignForm({ title: '', loadType: 'bullpen', intensity: 'high', targetThrowCount: 25, notes: '', dueDate: '' })
         setShowAssignForm(false)
       }
     } finally {
@@ -307,7 +336,7 @@ export default function CoachPlayerPage() {
                   onClick={() => setShowAssignForm(v => !v)}
                   className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/50 transition-colors"
                 >
-                  {showAssignForm ? 'Cancel' : '+ Assign Bullpens'}
+                  {showAssignForm ? 'Cancel' : '+ Assign Work'}
                 </button>
               </div>
 
@@ -328,13 +357,41 @@ export default function CoachPlayerPage() {
                     />
                   </div>
                   <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
+                      <select
+                        value={assignForm.loadType}
+                        onChange={e => setAssignForm(f => ({ ...f, loadType: e.target.value }))}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                      >
+                        {LOAD_TYPES.map(t => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Intensity</label>
+                      <select
+                        value={assignForm.intensity}
+                        onChange={e => setAssignForm(f => ({ ...f, intensity: e.target.value }))}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                      >
+                        {INTENSITIES.map(i => (
+                          <option key={i} value={i}>{i[0].toUpperCase() + i.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Bullpens</label>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                        {throwUnitLabel(assignForm.loadType)[0].toUpperCase() + throwUnitLabel(assignForm.loadType).slice(1)}
+                      </label>
                       <input
                         type="number"
                         min="1"
-                        value={assignForm.targetCount}
-                        onChange={e => setAssignForm(f => ({ ...f, targetCount: e.target.value }))}
+                        value={assignForm.targetThrowCount}
+                        onChange={e => setAssignForm(f => ({ ...f, targetThrowCount: e.target.value }))}
                         className="w-24 rounded-lg border border-border bg-background px-3 py-2 text-sm"
                       />
                     </div>
@@ -374,9 +431,17 @@ export default function CoachPlayerPage() {
                   {assignments.filter(a => a.status === 'open').map(a => (
                     <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
                       <div className="min-w-0">
+                        <div className="mb-1 flex items-center gap-1.5">
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                            {loadTypeLabel(a.loadType)}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {a.intensity}
+                          </span>
+                        </div>
                         <p className="truncate text-sm font-medium">{a.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {a.completedCount} / {a.targetCount} bullpens
+                          {a.completedThrowCount} / {a.targetThrowCount} {throwUnitLabel(a.loadType)}
                           {a.dueDate && ` · due ${formatDate(a.dueDate)}`}
                         </p>
                       </div>
@@ -394,7 +459,7 @@ export default function CoachPlayerPage() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium line-through">{a.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {a.completedCount} / {a.targetCount} bullpens · completed
+                          {a.completedThrowCount} / {a.targetThrowCount} {throwUnitLabel(a.loadType)} · completed
                         </p>
                       </div>
                     </div>
