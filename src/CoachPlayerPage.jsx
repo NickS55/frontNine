@@ -66,10 +66,14 @@ export default function CoachPlayerPage() {
   const [workload, setWorkload] = useState(null)
   const [throwingLoad, setThrowingLoad] = useState([])
   const [trackingUploads, setTrackingUploads] = useState([])
+  const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [authToken, setAuthToken] = useState(null)
   const [showUploadPanel, setShowUploadPanel] = useState(false)
+  const [showAssignForm, setShowAssignForm] = useState(false)
+  const [assignForm, setAssignForm] = useState({ title: '', targetCount: 2, notes: '', dueDate: '' })
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false)
   const [toast, setToast] = useState(null) // { message, onUndo }
 
   useEffect(() => {
@@ -83,11 +87,12 @@ export default function CoachPlayerPage() {
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
         const fromDate = ninetyDaysAgo.toISOString().slice(0, 10)
 
-        const [profileRes, sessionsRes, loadRes, uploadsRes] = await Promise.all([
+        const [profileRes, sessionsRes, loadRes, uploadsRes, assignmentsRes] = await Promise.all([
           fetch(`${BASE_URL}/players/${profileId}`, { headers }),
           fetch(`${BASE_URL}/players/${profileId}/bullpen-sessions`, { headers }),
           fetch(`${BASE_URL}/players/${profileId}/throwing-load?from=${fromDate}`, { headers }),
           fetch(`${BASE_URL}/players/${profileId}/tracking-uploads`, { headers }),
+          fetch(`${BASE_URL}/players/${profileId}/assignments`, { headers }),
         ])
 
         if (!profileRes.ok) throw new Error(`Could not load player profile (${profileRes.status})`)
@@ -105,6 +110,10 @@ export default function CoachPlayerPage() {
 
         if (uploadsRes.ok) {
           setTrackingUploads(await uploadsRes.json())
+        }
+
+        if (assignmentsRes.ok) {
+          setAssignments(await assignmentsRes.json())
         }
 
         if (teamId) {
@@ -159,6 +168,53 @@ export default function CoachPlayerPage() {
       })
       setTrackingUploads(prev => [...prev, upload].sort((a, b) =>
         new Date(b.createdAt ?? b.sessionDate) - new Date(a.createdAt ?? a.sessionDate)
+      ))
+      setToast(null)
+    })
+  }
+
+  async function createAssignment(e) {
+    e.preventDefault()
+    if (!assignForm.title.trim()) return
+    setIsSavingAssignment(true)
+    try {
+      const res = await fetch(`${BASE_URL}/players/${profileId}/assignments`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: assignForm.title.trim(),
+          targetCount: Number(assignForm.targetCount) || 1,
+          notes: assignForm.notes.trim() || undefined,
+          dueDate: assignForm.dueDate || undefined,
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setAssignments(prev => [created, ...prev])
+        setAssignForm({ title: '', targetCount: 2, notes: '', dueDate: '' })
+        setShowAssignForm(false)
+      }
+    } finally {
+      setIsSavingAssignment(false)
+    }
+  }
+
+  async function cancelAssignment(assignment) {
+    setAssignments(prev => prev.filter(a => a.id !== assignment.id))
+    await fetch(`${BASE_URL}/assignments/${assignment.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+    showToast('Assignment canceled', async () => {
+      await fetch(`${BASE_URL}/assignments/${assignment.id}/restore`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      setAssignments(prev => [assignment, ...prev].sort((a, b) =>
+        new Date(b.createdAt) - new Date(a.createdAt)
       ))
       setToast(null)
     })
@@ -241,6 +297,110 @@ export default function CoachPlayerPage() {
                   </div>
                 )}
               </div>
+            </section>
+
+            {/* Assigned work */}
+            <section>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Assigned Work</h2>
+                <button
+                  onClick={() => setShowAssignForm(v => !v)}
+                  className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/50 transition-colors"
+                >
+                  {showAssignForm ? 'Cancel' : '+ Assign Bullpens'}
+                </button>
+              </div>
+
+              {showAssignForm && (
+                <form
+                  onSubmit={createAssignment}
+                  className="mb-6 space-y-3 rounded-xl border border-border bg-card p-5"
+                >
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Focus</label>
+                    <input
+                      type="text"
+                      required
+                      value={assignForm.title}
+                      onChange={e => setAssignForm(f => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g. Glove-side fastball command"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Bullpens</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={assignForm.targetCount}
+                        onChange={e => setAssignForm(f => ({ ...f, targetCount: e.target.value }))}
+                        className="w-24 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Due date (optional)</label>
+                      <input
+                        type="date"
+                        value={assignForm.dueDate}
+                        onChange={e => setAssignForm(f => ({ ...f, dueDate: e.target.value }))}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Notes (optional)</label>
+                    <textarea
+                      value={assignForm.notes}
+                      onChange={e => setAssignForm(f => ({ ...f, notes: e.target.value }))}
+                      rows={2}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSavingAssignment}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    {isSavingAssignment ? 'Assigning…' : 'Assign'}
+                  </button>
+                </form>
+              )}
+
+              {assignments.length === 0 && !showAssignForm ? (
+                <p className="text-sm text-muted-foreground">No work assigned yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {assignments.filter(a => a.status === 'open').map(a => (
+                    <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{a.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {a.completedCount} / {a.targetCount} bullpens
+                          {a.dueDate && ` · due ${formatDate(a.dueDate)}`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => cancelAssignment(a)}
+                        className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive"
+                        aria-label="Cancel assignment"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {assignments.filter(a => a.status === 'completed').map(a => (
+                    <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/50 px-4 py-3 opacity-70">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium line-through">{a.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {a.completedCount} / {a.targetCount} bullpens · completed
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Arm status */}
