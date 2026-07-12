@@ -147,6 +147,7 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
   const [parsed, setParsed] = useState(null)   // { pitches, csvText, filename, sessionDate, device }
   const [error, setError]   = useState(null)
   const [notes, setNotes]   = useState('')
+  const [sessionType, setSessionType] = useState('bullpen') // 'bullpen' | 'game'
 
   function handleFile(file) {
     if (!file) return
@@ -227,6 +228,7 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
           filename:    parsed.filename,
           csvText:     parsed.csvText,
           sessionDate: parsed.sessionDate,
+          sessionType,
           notes:       notes || undefined,
           pitches:     parsed.pitches,
         }),
@@ -251,6 +253,7 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
     setParsed(null)
     setError(null)
     setNotes('')
+    setSessionType('bullpen')
     if (inputRef.current) inputRef.current.value = ''
   }
 
@@ -372,6 +375,35 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
 
           {/* Preview table */}
           <PreviewTable pitches={parsed.pitches} />
+
+          {/* Session type */}
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">Session type</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSessionType('bullpen')}
+                className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                  sessionType === 'bullpen'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:border-primary/50'
+                }`}
+              >
+                Bullpen
+              </button>
+              <button
+                type="button"
+                onClick={() => setSessionType('game')}
+                className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                  sessionType === 'game'
+                    ? 'border-orange-500 bg-orange-500/10 text-orange-500'
+                    : 'border-border text-muted-foreground hover:border-orange-500/50'
+                }`}
+              >
+                Game Performance
+              </button>
+            </div>
+          </div>
 
           {/* Notes */}
           <textarea

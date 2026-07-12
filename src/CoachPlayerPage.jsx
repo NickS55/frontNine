@@ -28,15 +28,16 @@ const WORKLOAD_STATUS = {
 // Mirrors backend's throw_load_type enum (backNine/src/migrations/021_throwing_workload.sql),
 // minus 'game' — a coach assigns training, not a scheduled game.
 const LOAD_TYPES = [
-  { value: 'bullpen',     label: 'Bullpen' },
-  { value: 'long_toss',   label: 'Long Toss' },
-  { value: 'flat_ground', label: 'Flat Ground' },
-  { value: 'plyo',        label: 'Plyo / Weighted' },
-  { value: 'warmup',      label: 'Warm-up' },
-  { value: 'recovery',    label: 'Recovery' },
-  { value: 'pulldown',    label: 'Pull-downs' },
-  { value: 'live_ab',     label: 'Live ABs' },
-  { value: 'other',       label: 'Other' },
+  { value: 'bullpen',          label: 'Bullpen' },
+  { value: 'game_performance', label: 'Game Performance' },
+  { value: 'long_toss',        label: 'Long Toss' },
+  { value: 'flat_ground',      label: 'Flat Ground' },
+  { value: 'plyo',             label: 'Plyo / Weighted' },
+  { value: 'warmup',           label: 'Warm-up' },
+  { value: 'recovery',         label: 'Recovery' },
+  { value: 'pulldown',         label: 'Pull-downs' },
+  { value: 'live_ab',          label: 'Live ABs' },
+  { value: 'other',            label: 'Other' },
 ]
 
 // Mirrors backend's throw_intensity enum.
@@ -335,6 +336,12 @@ export default function CoachPlayerPage() {
               </div>
             </section>
 
+            {/* Velocity + score over time */}
+            <section>
+              <h2 className="mb-4 text-lg font-semibold">Performance Trends</h2>
+              <PerformanceChart sessions={sessions} />
+            </section>
+
             {/* Assigned work */}
             <section>
               <div className="mb-4 flex items-center justify-between">
@@ -543,12 +550,6 @@ export default function CoachPlayerPage() {
               <WorkloadChart throwingLoad={throwingLoad} sessions={sessions} />
             </section>
 
-            {/* Velocity + score over time */}
-            <section>
-              <h2 className="mb-4 text-lg font-semibold">Performance Trends</h2>
-              <PerformanceChart sessions={sessions} />
-            </section>
-
             {/* All sessions — bullpen + tracking uploads merged */}
             <section>
               <div className="mb-4 flex items-center justify-between">
@@ -596,6 +597,7 @@ export default function CoachPlayerPage() {
                     date: u.sessionDate ?? formatDate(u.createdAt),
                     pitchCount: u.pitchCount,
                     deviceType: u.deviceType,
+                    sessionType: u.sessionType,
                     filename: u.filename,
                     notes: u.notes,
                   })),
@@ -650,7 +652,7 @@ export default function CoachPlayerPage() {
                     ) : (
                       <button
                         key={item.id}
-                        className="group w-full rounded-xl border border-border bg-card p-5 text-left transition-colors hover:border-amber-500/40 hover:bg-card/80"
+                        className="group w-full rounded-xl border border-border bg-card p-5 text-left transition-all hover:border-primary/50 hover:shadow-md"
                         onClick={() => navigate(`/tracking-uploads/${item.id}`)}
                       >
                         <div className="mb-2 flex items-start justify-between gap-2">
@@ -670,13 +672,22 @@ export default function CoachPlayerPage() {
                             </svg>
                           </button>
                         </div>
-                        <span className="inline-block rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
-                          {item.deviceType ?? 'Tracking'}
-                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="inline-block rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
+                            TrackMan
+                          </span>
+                          {item.sessionType && (
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                              item.sessionType === 'game' ? 'bg-orange-500/10 text-orange-500' : 'bg-primary/10 text-primary'
+                            }`}>
+                              {item.sessionType === 'game' ? 'Game' : 'Bullpen'}
+                            </span>
+                          )}
+                        </div>
                         {item.notes && (
                           <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{item.notes}</p>
                         )}
-                        <p className="mt-3 text-xs font-medium text-amber-500 opacity-0 transition-opacity group-hover:opacity-100">
+                        <p className="mt-3 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
                           View pitches →
                         </p>
                       </button>
@@ -696,14 +707,15 @@ export default function CoachPlayerPage() {
 // Type multipliers reflect typical distance/context; intensity modifiers use the
 // non-linear curve from research (50% effort ≈ 75% max torque).
 const TYPE_MULT = {
-  recovery:    0.50,
-  warmup:      0.60,
-  plyo:        0.75,
-  flat_ground: 0.85,
-  long_toss:   1.00,
-  live_ab:     1.10,
-  pulldown:    1.30,
-  other:       0.80,
+  recovery:         0.50,
+  warmup:           0.60,
+  plyo:             0.75,
+  flat_ground:      0.85,
+  long_toss:        1.00,
+  live_ab:          1.10,
+  pulldown:         1.30,
+  game_performance: 1.20,
+  other:            0.80,
 }
 const INTENSITY_MOD = { low: 0.75, medium: 0.88, high: 0.95, max: 1.00 }
 
