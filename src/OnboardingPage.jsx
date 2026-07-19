@@ -384,6 +384,7 @@ function ProfileStep({ getToken, onDone, onSkip }) {
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         homeCity: form.homeCity.trim() || null,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }
 
       const res = await fetch(`${BASE_URL}/players`, {

@@ -25,6 +25,14 @@ const WORKLOAD_STATUS = {
   insufficient_history: { label: 'No history', badge: 'bg-muted text-muted-foreground',        dot: 'bg-muted-foreground' },
 }
 
+// Red/yellow/green decision from the workload endpoint's Pitch Smart + ACWR engine.
+const ALERT_LEVELS = {
+  red:    { label: 'Red',     banner: 'border-destructive/40 bg-destructive/10', badge: 'bg-destructive/15 text-destructive' },
+  yellow: { label: 'Caution', banner: 'border-yellow-500/40 bg-yellow-500/10',   badge: 'bg-yellow-500/15 text-yellow-500' },
+  green:  { label: 'Good',    banner: 'border-primary/40 bg-primary/10',         badge: 'bg-primary/15 text-primary' },
+  gray:   { label: 'No data', banner: 'border-border bg-muted/30',               badge: 'bg-muted text-muted-foreground' },
+}
+
 // Mirrors backend's throw_load_type enum (backNine/src/migrations/021_throwing_workload.sql),
 // minus 'game' — a coach assigns training, not a scheduled game.
 const LOAD_TYPES = [
@@ -498,6 +506,42 @@ export default function CoachPlayerPage() {
               return (
               <section>
                 <h2 className="mb-4 text-lg font-semibold">Arm Status</h2>
+
+                {/* Decision banner — the coach's red/yellow/green call for today */}
+                {workload.alert && (() => {
+                  const level = ALERT_LEVELS[workload.alert.level] ?? ALERT_LEVELS.gray
+                  const ps = workload.pitchSmart
+                  return (
+                    <div className={`mb-4 rounded-xl border p-4 ${level.banner}`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${level.badge}`}>
+                          {level.label}
+                        </span>
+                        <p className="text-sm font-semibold">{workload.alert.recommendation}</p>
+                      </div>
+                      {workload.alert.reasons.length > 0 && (
+                        <ul className="mt-2 space-y-0.5 pl-1 text-xs text-muted-foreground">
+                          {workload.alert.reasons.map(reason => (
+                            <li key={reason}>• {reason}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {ps?.ageBracket ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Pitch Smart {ps.ageBracket} · daily max {ps.dailyMaxPitches} pitches
+                          {ps.pitchesAvailableToday != null && ` · ${ps.pitchesAvailableToday} available today`}
+                          {ps.restDaysRemaining > 0 && ps.eligibleOn && ` · eligible to pitch ${formatDateShort(ps.eligibleOn)}`}
+                          {ps.compliant === false && ' · ⚠ Pitch Smart violation'}
+                        </p>
+                      ) : ps && ps.age == null ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Add a birthdate to this player's profile to enable Pitch Smart age-based limits.
+                        </p>
+                      ) : null}
+                    </div>
+                  )
+                })()}
+
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <ArmStat
                     label="ACWR"

@@ -61,7 +61,66 @@ function CheckInBar({ value, reversed = false }) {
   )
 }
 
-function CheckInCard({ getToken, profileId, onSaved }) {
+// Red/yellow/green decision from the arm-status endpoint (Pitch Smart + ACWR).
+const ALERT_LEVELS = {
+  red:    { label: 'Rest',    banner: 'border-destructive/40 bg-destructive/10', badge: 'bg-destructive/15 text-destructive' },
+  yellow: { label: 'Caution', banner: 'border-yellow-500/40 bg-yellow-500/10',   badge: 'bg-yellow-500/15 text-yellow-500' },
+  green:  { label: 'Go',      banner: 'border-primary/40 bg-primary/10',         badge: 'bg-primary/15 text-primary' },
+  gray:   { label: 'No data', banner: 'border-border bg-muted/30',               badge: 'bg-muted text-muted-foreground' },
+}
+
+function ArmStatusCard({ getToken, profileId, refreshKey }) {
+  const [status, setStatus] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchStatus() {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${BASE_URL}/players/${profileId}/arm-status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok && !cancelled) setStatus(await res.json())
+      } catch {
+        // non-critical card — stay hidden on error
+      }
+    }
+    fetchStatus()
+    return () => { cancelled = true }
+  }, [getToken, profileId, refreshKey])
+
+  if (!status?.alert) return null
+
+  const level = ALERT_LEVELS[status.alert.level] ?? ALERT_LEVELS.gray
+  const ps = status.pitchSmart
+
+  return (
+    <section className={`rounded-xl border p-6 ${level.banner}`}>
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-semibold">Today's Arm Status</h2>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${level.badge}`}>
+          {level.label}
+        </span>
+      </div>
+      <p className="text-sm font-medium">{status.alert.recommendation}</p>
+      {status.alert.reasons.length > 0 && (
+        <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+          {status.alert.reasons.map(reason => (
+            <li key={reason}>• {reason}</li>
+          ))}
+        </ul>
+      )}
+      {ps?.ageBracket && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Pitch Smart {ps.ageBracket} · daily max {ps.dailyMaxPitches} pitches
+          {ps.pitchesAvailableToday != null && ` · ${ps.pitchesAvailableToday} available today`}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function CheckInCard({ getToken, onSaved }) {
   const [checkin, setCheckin] = useState(null)       // today's saved check-in
   const [loadingCheckin, setLoadingCheckin] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -243,6 +302,7 @@ export default function HomePage() {
 
   const [profile, setProfile] = useState(null)
   const [userRole, setUserRole] = useState(null)
+  const [checkinVersion, setCheckinVersion] = useState(0)
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -390,7 +450,9 @@ export default function HomePage() {
               </div>
             </section>
 
-            <CheckInCard getToken={getToken} profileId={profile.id} />
+            <ArmStatusCard getToken={getToken} profileId={profile.id} refreshKey={checkinVersion} />
+
+            <CheckInCard getToken={getToken} onSaved={() => setCheckinVersion(v => v + 1)} />
 
             {/* Best bullpens */}
             <section>

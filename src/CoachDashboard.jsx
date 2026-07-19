@@ -10,11 +10,20 @@ const POSITION_LABELS = {
   right_field: 'RF', designated_hitter: 'DH',
 }
 
-const WORKLOAD_STATUS = {
-  spike:                { label: 'Spike',      badge: 'bg-destructive/15 text-destructive' },
-  green:                { label: 'Good',       badge: 'bg-primary/15 text-primary' },
-  undercooked:          { label: 'Under',      badge: 'bg-yellow-500/15 text-yellow-500' },
-  insufficient_history: { label: 'No history', badge: 'bg-muted text-muted-foreground' },
+// Red/yellow/green decision from the workload endpoint's Pitch Smart + ACWR engine.
+const ALERT_LEVELS = {
+  red:    { label: 'Red',     badge: 'bg-destructive/15 text-destructive',  border: 'border-destructive/40' },
+  yellow: { label: 'Caution', badge: 'bg-yellow-500/15 text-yellow-500',    border: 'border-yellow-500/40' },
+  green:  { label: 'Good',    badge: 'bg-primary/15 text-primary',          border: 'border-primary/40' },
+  gray:   { label: 'No data', badge: 'bg-muted text-muted-foreground',      border: 'border-border' },
+}
+
+// Fallback for responses from a backend that predates the alert field.
+function alertOf(arm) {
+  if (arm.alert) return arm.alert
+  const level = arm.status === 'spike' ? 'red' : arm.status === 'undercooked' ? 'yellow'
+    : arm.status === 'green' ? 'green' : 'gray'
+  return { level, reasons: [], recommendation: null }
 }
 
 function formatDate(dateStr) {
@@ -24,7 +33,7 @@ function formatDate(dateStr) {
   })
 }
 
-function ResendInviteButton({ inviteId, teamId }) {
+function ResendInviteButton({ inviteId }) {
   const { getToken } = useAuth()
   const [state, setState] = useState('idle') // 'idle' | 'sending' | 'sent' | 'error'
 
@@ -250,7 +259,8 @@ export default function CoachDashboard() {
 
   const selectedTeam = teams.find(t => t.id === teamId)
   const activeRoster = roster.filter(p => !p.isPending)
-  const spikes = workload.filter(w => w.status === 'spike')
+  const redArms = workload.filter(w => alertOf(w).level === 'red')
+  const cautionArms = workload.filter(w => alertOf(w).level === 'yellow')
   const soreArms = workload.filter(w => w.soreness != null && w.soreness >= 4)
 
   return (
@@ -289,8 +299,8 @@ export default function CoachDashboard() {
         <StatCard label="Roster" value={activeRoster.length} />
         <StatCard
           label="Arms at Risk"
-          value={spikes.length}
-          accent={spikes.length > 0 ? 'text-destructive' : 'text-primary'}
+          value={redArms.length}
+          accent={redArms.length > 0 ? 'text-destructive' : 'text-primary'}
         />
         <StatCard
           label="Sore Arms"
@@ -303,6 +313,48 @@ export default function CoachDashboard() {
           accent={requests.length > 0 ? 'text-yellow-500' : undefined}
         />
       </section>
+
+      {/* Arm alerts — every red/yellow arm with the why and the what-to-do */}
+      {!teamLoading && (redArms.length > 0 || cautionArms.length > 0) && (
+        <section>
+          <h2 className="mb-4 text-lg font-semibold">Arm Alerts</h2>
+          <div className="space-y-3">
+            {[...redArms, ...cautionArms].map(arm => {
+              const alert = alertOf(arm)
+              const level = ALERT_LEVELS[alert.level]
+              return (
+                <div
+                  key={arm.playerId}
+                  onClick={() => navigate(`/coach/player/${arm.playerId}?teamId=${teamId}`)}
+                  className={`cursor-pointer rounded-xl border bg-card p-4 transition-all hover:shadow-md ${level.border}`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${level.badge}`}>
+                      {level.label}
+                    </span>
+                    <p className="text-sm font-semibold">
+                      {arm.jerseyNumber != null && (
+                        <span className="mr-1.5 font-mono text-xs text-muted-foreground">#{arm.jerseyNumber}</span>
+                      )}
+                      {arm.name}
+                    </p>
+                    {alert.recommendation && (
+                      <p className="text-sm text-muted-foreground">— {alert.recommendation}</p>
+                    )}
+                  </div>
+                  {alert.reasons.length > 0 && (
+                    <ul className="mt-2 space-y-0.5 pl-1 text-xs text-muted-foreground">
+                      {alert.reasons.map(reason => (
+                        <li key={reason}>• {reason}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Arm watch — riskiest first, straight from the workload endpoint */}
       <section>
@@ -322,13 +374,14 @@ export default function CoachDashboard() {
                   <th className="px-4 py-3 text-right font-medium">ACWR</th>
                   <th className="px-4 py-3 text-right font-medium">Throws (7d)</th>
                   <th className="px-4 py-3 text-right font-medium">Days Rest</th>
+                  <th className="px-4 py-3 text-right font-medium">Avail. Today</th>
                   <th className="px-4 py-3 text-right font-medium">Readiness</th>
                   <th className="px-4 py-3 text-right font-medium">Soreness</th>
                 </tr>
               </thead>
               <tbody>
                 {workload.map(arm => {
-                  const status = WORKLOAD_STATUS[arm.status] ?? WORKLOAD_STATUS.insufficient_history
+                  const level = ALERT_LEVELS[alertOf(arm).level]
                   const today = new Date().toISOString().slice(0, 10)
                   const checkinDate = arm.readinessCheckDate ? String(arm.readinessCheckDate).slice(0, 10) : null
                   const checkinStale = checkinDate !== today
@@ -345,8 +398,8 @@ export default function CoachDashboard() {
                         {arm.name}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.badge}`}>
-                          {status.label}
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${level.badge}`}>
+                          {level.label}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
@@ -355,6 +408,14 @@ export default function CoachDashboard() {
                       <td className="px-4 py-3 text-right tabular-nums">{arm.throwsLast7d}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {arm.daysRest != null ? arm.daysRest : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {arm.pitchSmart?.pitchesAvailableToday != null ? (
+                          <>
+                            {arm.pitchSmart.pitchesAvailableToday}
+                            <span className="text-xs text-muted-foreground"> / {arm.pitchSmart.dailyMaxPitches}</span>
+                          </>
+                        ) : '—'}
                       </td>
                       <td className={`px-4 py-3 text-right tabular-nums ${checkinStale && arm.readiness != null ? 'text-muted-foreground' : ''}`}>
                         {arm.readiness != null ? (
@@ -466,7 +527,7 @@ export default function CoachDashboard() {
                   ) : null}
                 </div>
                 {player.isPending && (
-                  <ResendInviteButton inviteId={player.id} teamId={teamId} />
+                  <ResendInviteButton inviteId={player.id} />
                 )}
               </div>
             ))}
