@@ -470,9 +470,17 @@ export default function HomePage() {
                     >
                       <div className="mb-3 flex items-start justify-between">
                         <div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(session.startedAt ?? session.createdAt)}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(session.startedAt ?? session.createdAt)}
+                            </p>
+                            {session.unreadFeedbackCount > 0 && (
+                              <span
+                                title={`${session.unreadFeedbackCount} new coach feedback`}
+                                className="inline-block h-2 w-2 shrink-0 rounded-full bg-primary"
+                              />
+                            )}
+                          </div>
                           {session.pitchCount != null && (
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {session.pitchCount} pitch{session.pitchCount !== 1 ? 'es' : ''}

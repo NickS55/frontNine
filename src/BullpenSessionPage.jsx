@@ -271,6 +271,129 @@ function formatLongDate(dateStr) {
   })
 }
 
+function formatFeedbackDate(dateStr) {
+  return new Date(dateStr).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  })
+}
+
+// ── Session feedback (coach ↔ player) ─────────────────────────────────────────
+function authorFallbackName(authorRole) {
+  return authorRole === 'player' ? 'Player' : 'Coach'
+}
+
+function FeedbackSection({ sessionId, getToken, role }) {
+  const [feedback, setFeedback]   = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
+  const [draft, setDraft]         = useState('')
+  const [posting, setPosting]     = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchFeedback() {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${BASE_URL}/bullpen-sessions/${sessionId}/feedback`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (cancelled) return
+        setFeedback(data)
+
+        if (role === 'player' && data.some(f => !f.readAt)) {
+          fetch(`${BASE_URL}/bullpen-sessions/${sessionId}/feedback/read`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => {})
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    if (role) fetchFeedback()
+    return () => { cancelled = true }
+  }, [sessionId, getToken, role])
+
+  async function submitFeedback(e) {
+    e.preventDefault()
+    if (!draft.trim() || posting) return
+    setPosting(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${BASE_URL}/bullpen-sessions/${sessionId}/feedback`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: draft.trim() }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const created = await res.json()
+      setFeedback(prev => [...prev, created])
+      setDraft('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  if (!role) return null
+
+  return (
+    <section>
+      <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        Feedback
+      </p>
+
+      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {!loading && !error && (
+        <div className="space-y-3">
+          {feedback.length === 0 && (
+            <p className="text-sm text-muted-foreground">No feedback yet on this session.</p>
+          )}
+          {feedback.map(f => (
+            <div key={f.id} className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">{f.authorName ?? authorFallbackName(f.authorRole)}</p>
+                <p className="text-xs text-muted-foreground">{formatFeedbackDate(f.createdAt)}</p>
+              </div>
+              <p className="whitespace-pre-wrap text-sm text-foreground">{f.body}</p>
+            </div>
+          ))}
+
+          {role && (
+            <form onSubmit={submitFeedback} className="rounded-xl border border-border bg-card p-4">
+              <textarea
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                placeholder="Leave feedback on this session…"
+                rows={3}
+                className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+              />
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={!draft.trim() || posting}
+                  className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {posting ? 'Posting…' : 'Post Feedback'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function BullpenSessionPage() {
   const { sessionId } = useParams()
   const { getToken } = useAuth()
@@ -281,6 +404,7 @@ export default function BullpenSessionPage() {
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+  const [role, setRole]             = useState(null)
 
   useEffect(() => {
     if (!isLoaded) return
@@ -289,11 +413,17 @@ export default function BullpenSessionPage() {
     async function fetchSession() {
       try {
         const token = await getToken()
-        const res = await fetch(`${BASE_URL}/bullpen-sessions/${sessionId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        setSession(await res.json())
+        const headers = { Authorization: `Bearer ${token}` }
+        const [sessionRes, meRes] = await Promise.all([
+          fetch(`${BASE_URL}/bullpen-sessions/${sessionId}`, { headers }),
+          fetch(`${BASE_URL}/me`, { headers }),
+        ])
+        if (!sessionRes.ok) throw new Error(`HTTP ${sessionRes.status}`)
+        setSession(await sessionRes.json())
+        if (meRes.ok) {
+          const me = await meRes.json()
+          setRole(me.isAdmin ? 'admin' : me.role)
+        }
       } catch (err) {
         setError(err.message)
       } finally {
@@ -431,6 +561,8 @@ export default function BullpenSessionPage() {
                 </div>
               </section>
             )}
+
+            <FeedbackSection sessionId={sessionId} getToken={getToken} role={role} />
           </div>
         )}
       </main>
