@@ -42,7 +42,7 @@ export default function LandingPage() {
         />
 
         <h1
-          className="font-display mb-6 text-[clamp(3rem,8vw,6rem)] font-extrabold uppercase leading-none tracking-tight whitespace-nowrap"
+          className="font-display mb-6 max-w-full text-[clamp(1.25rem,calc(8.1vw_-_3.9px),6rem)] font-extrabold uppercase leading-none tracking-tight whitespace-nowrap"
           style={{ animation: 'fadeInUp 0.55s 0.08s ease both', opacity: 0 }}
         >
           Track The Work.<br />
