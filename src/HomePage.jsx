@@ -487,9 +487,14 @@ export default function HomePage() {
                             </p>
                           )}
                         </div>
-                        <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(session.score)}`}>
-                          {session.score != null ? session.score.toFixed(1) : '—'}
-                        </span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Location Score
+                          </span>
+                          <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(session.score)}`}>
+                            {session.score != null ? session.score.toFixed(1) : '—'}
+                          </span>
+                        </div>
                       </div>
 
                       {session.notes && (

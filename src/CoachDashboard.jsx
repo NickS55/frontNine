@@ -314,48 +314,6 @@ export default function CoachDashboard() {
         />
       </section>
 
-      {/* Arm alerts — every red/yellow arm with the why and the what-to-do */}
-      {!teamLoading && (redArms.length > 0 || cautionArms.length > 0) && (
-        <section>
-          <h2 className="mb-4 text-lg font-semibold">Arm Alerts</h2>
-          <div className="space-y-3">
-            {[...redArms, ...cautionArms].map(arm => {
-              const alert = alertOf(arm)
-              const level = ALERT_LEVELS[alert.level]
-              return (
-                <div
-                  key={arm.playerId}
-                  onClick={() => navigate(`/coach/player/${arm.playerId}?teamId=${teamId}`)}
-                  className={`cursor-pointer rounded-xl border bg-card p-4 transition-all hover:shadow-md ${level.border}`}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${level.badge}`}>
-                      {level.label}
-                    </span>
-                    <p className="text-sm font-semibold">
-                      {arm.jerseyNumber != null && (
-                        <span className="mr-1.5 font-mono text-xs text-muted-foreground">#{arm.jerseyNumber}</span>
-                      )}
-                      {arm.name}
-                    </p>
-                    {alert.recommendation && (
-                      <p className="text-sm text-muted-foreground">— {alert.recommendation}</p>
-                    )}
-                  </div>
-                  {alert.reasons.length > 0 && (
-                    <ul className="mt-2 space-y-0.5 pl-1 text-xs text-muted-foreground">
-                      {alert.reasons.map(reason => (
-                        <li key={reason}>• {reason}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
       {/* Arm watch — riskiest first, straight from the workload endpoint */}
       <section>
         <h2 className="mb-4 text-lg font-semibold">Arm Watch</h2>
@@ -439,6 +397,11 @@ export default function CoachDashboard() {
               </tbody>
             </table>
           </div>
+        )}
+        {!teamLoading && workload.length > 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            ⚠️ Player hasn't checked in today — readiness/soreness shown is from their last check-in.
+          </p>
         )}
       </section>
 

@@ -471,7 +471,7 @@ export default function BullpenSessionPage() {
                 )}
               </div>
               <div className="text-right">
-                <p className="mb-0.5 text-xs text-muted-foreground">Session Score</p>
+                <p className="mb-0.5 text-xs text-muted-foreground">Location Score</p>
                 <p className={`text-4xl font-bold tabular-nums ${scoreColorClass(session.score)}`}>
                   {session.score != null ? session.score.toFixed(1) : '—'}
                 </p>

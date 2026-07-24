@@ -638,8 +638,9 @@ export default function CoachPlayerPage() {
                     _type: 'tracking',
                     _sortDate: new Date(u.sessionDate ?? u.createdAt),
                     id: u.id,
-                    date: u.sessionDate ?? formatDate(u.createdAt),
+                    date: formatDate(u.sessionDate ?? u.createdAt),
                     pitchCount: u.pitchCount,
+                    fbVelocity: u.fbVelocity,
                     deviceType: u.deviceType,
                     sessionType: u.sessionType,
                     filename: u.filename,
@@ -668,10 +669,15 @@ export default function CoachPlayerPage() {
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(item.score)}`}>
-                              {item.score != null ? Number(item.score).toFixed(1) : '—'}
-                            </span>
+                          <div className="flex items-end gap-2">
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Location Score
+                              </span>
+                              <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(item.score)}`}>
+                                {item.score != null ? Number(item.score).toFixed(1) : '—'}
+                              </span>
+                            </div>
                             <button
                               onClick={e => { e.stopPropagation(); deleteSession(sessions.find(s => s.id === item.id)) }}
                               className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
@@ -706,15 +712,25 @@ export default function CoachPlayerPage() {
                               {item.pitchCount} pitch{item.pitchCount !== 1 ? 'es' : ''}
                             </p>
                           </div>
-                          <button
-                            onClick={e => { e.stopPropagation(); deleteUpload(trackingUploads.find(u => u.id === item.id)) }}
-                            className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                            aria-label="Delete session"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4h6v3M3 7h18" />
-                            </svg>
-                          </button>
+                          <div className="flex items-end gap-2">
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Avg FB Velo
+                              </span>
+                              <span className="text-2xl font-bold tabular-nums text-foreground">
+                                {item.fbVelocity != null ? Number(item.fbVelocity).toFixed(1) : '—'}
+                              </span>
+                            </div>
+                            <button
+                              onClick={e => { e.stopPropagation(); deleteUpload(trackingUploads.find(u => u.id === item.id)) }}
+                              className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                              aria-label="Delete session"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4h6v3M3 7h18" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           <span className="inline-block rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
@@ -976,7 +992,7 @@ function PerformanceChart({ sessions }) {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-px w-5 rounded" style={{ background: '#a78bfa' }} />
-            Score
+            Location Score
           </span>
         </div>
       </div>
@@ -1023,7 +1039,7 @@ function PerformanceChart({ sessions }) {
             formatter={(value, name) =>
               name === 'velo'
                 ? [`${Number(value).toFixed(1)} mph`, 'FB Velo']
-                : [`${Number(value).toFixed(1)}`, 'Score']
+                : [`${Number(value).toFixed(1)}`, 'Location Score']
             }
           />
           <Line
