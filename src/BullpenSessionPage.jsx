@@ -470,12 +470,23 @@ export default function BullpenSessionPage() {
                   <p className="mt-2 max-w-lg text-sm text-muted-foreground">{session.notes}</p>
                 )}
               </div>
-              <div className="text-right">
-                <p className="mb-0.5 text-xs text-muted-foreground">Location Score</p>
-                <p className={`text-4xl font-bold tabular-nums ${scoreColorClass(session.score)}`}>
-                  {session.score != null ? session.score.toFixed(1) : '—'}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">out of 100</p>
+              <div className="flex items-start gap-6">
+                {session.fbVelocity != null && (
+                  <div className="text-right">
+                    <p className="mb-0.5 text-xs text-muted-foreground">Avg FB Velo</p>
+                    <p className="text-4xl font-bold tabular-nums text-foreground">
+                      {Number(session.fbVelocity).toFixed(1)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">mph</p>
+                  </div>
+                )}
+                <div className="text-right">
+                  <p className="mb-0.5 text-xs text-muted-foreground">Location Score</p>
+                  <p className={`text-4xl font-bold tabular-nums ${scoreColorClass(session.score)}`}>
+                    {session.score != null ? session.score.toFixed(1) : '—'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">out of 100</p>
+                </div>
               </div>
             </div>
 

@@ -632,6 +632,7 @@ export default function CoachPlayerPage() {
                     date: formatDate(s.startedAt ?? s.createdAt),
                     pitchCount: s.pitchCount,
                     score: s.score,
+                    fbVelocity: s.fbVelocity,
                     notes: s.notes,
                   })),
                   ...trackingUploads.map(u => ({
@@ -670,6 +671,16 @@ export default function CoachPlayerPage() {
                             )}
                           </div>
                           <div className="flex items-end gap-2">
+                            {item.fbVelocity != null && (
+                              <div className="flex flex-col items-end">
+                                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Avg FB Velo
+                                </span>
+                                <span className="text-2xl font-bold tabular-nums text-foreground">
+                                  {Number(item.fbVelocity).toFixed(1)}
+                                </span>
+                              </div>
+                            )}
                             <div className="flex flex-col items-end">
                               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 Location Score

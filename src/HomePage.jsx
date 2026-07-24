@@ -487,13 +487,25 @@ export default function HomePage() {
                             </p>
                           )}
                         </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Location Score
-                          </span>
-                          <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(session.score)}`}>
-                            {session.score != null ? session.score.toFixed(1) : '—'}
-                          </span>
+                        <div className="flex items-start gap-4">
+                          {session.fbVelocity != null && (
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Avg FB Velo
+                              </span>
+                              <span className="text-2xl font-bold tabular-nums text-foreground">
+                                {Number(session.fbVelocity).toFixed(1)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Location Score
+                            </span>
+                            <span className={`text-2xl font-bold tabular-nums ${scoreColorClass(session.score)}`}>
+                              {session.score != null ? session.score.toFixed(1) : '—'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
