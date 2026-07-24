@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom'
 import { FloatingEquipment } from './components/FloatingEquipment'
 import { Header } from './components/Header'
 import { BetaSignupForm } from './components/BetaSignupForm'
+import trackmanLogo from './assets/logos/trackman.svg'
+import gamechangerLogo from './assets/logos/gamechanger.svg'
+import pitchsmartLogo from './assets/logos/pitchsmart.png'
+import rapsodoLogo from './assets/logos/rapsodo.svg'
 
 export default function LandingPage() {
   const formRef = useRef(null)
@@ -54,8 +58,9 @@ export default function LandingPage() {
           className="mb-10 max-w-xl text-lg leading-relaxed text-muted-foreground md:text-xl"
           style={{ animation: 'fadeInUp 0.55s 0.18s ease both', opacity: 0 }}
         >
-          All Nine Sports gives all coaches one platform to run better practices,
-          review games, and show every player exactly how they&apos;re improving,
+          All Nine Sports gives high school and travel ball coaches one platform
+          to develop pitchers: track every bullpen with just a phone, keep every
+          arm healthy, and show every pitcher exactly how they&apos;re improving,
           all season long.
         </p>
 
@@ -80,24 +85,32 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 text-center">
             <h2 className="font-display text-4xl font-bold uppercase tracking-wide md:text-5xl">
-              Everything Your Program Needs
+              Everything Your Pitching Staff Needs
             </h2>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <FeatureCard
               label="BULLPEN TRACKING"
               title="Every Rep, Recorded"
-              description="Log bullpen sessions, map pitch location, and track velocity over weeks and months. Give every pitcher a data record that shows them exactly how they're developing."
-              cta="Coming to Beta"
+              description="Capture bullpens with just a phone. No extra hardware. Pitch location, velocity, and an objective command score for every session, charted across the season. TrackMan data drops right in too."
+              cta="In Beta Now"
               live={false}
               icon={<BullpenIcon />}
             />
             <FeatureCard
-              label="GAME TRACKING"
-              title="Own Your Season"
-              description="Record games, review stats inning by inning, and build a full picture of your team's performance over time. Real data for coaches, players, and parents."
-              cta="Coming to Beta"
+              label="ARM CARE"
+              title="Protect Every Arm"
+              description="Daily soreness and readiness check-ins, workload tracked across bullpens and game outings, and Pitch Smart alerts that flag when a pitcher needs rest before it becomes an injury."
+              cta="In Beta Now"
+              live={false}
+              icon={<ShieldIcon />}
+            />
+            <FeatureCard
+              label="COACH DASHBOARD"
+              title="Run the Whole Staff"
+              description="Workload and readiness across your entire roster at a glance. Assign training work with automatic completion tracking, and drill into any pitcher's full development history."
+              cta="In Beta Now"
               live={false}
               icon={<StatsIcon />}
             />
@@ -109,6 +122,37 @@ export default function LandingPage() {
               href="/pitch-dna"
               live
               icon={<MlbIcon />}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Integrations */}
+      <section className="relative z-10 px-6 py-14">
+        <div className="mx-auto max-w-5xl text-center">
+          <p className="mb-8 text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">
+            Integrates With
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-8">
+            <img
+              src={trackmanLogo}
+              alt="TrackMan"
+              className="h-5 w-auto brightness-0 invert opacity-50 transition-opacity duration-200 hover:opacity-90"
+            />
+            <img
+              src={gamechangerLogo}
+              alt="GameChanger"
+              className="h-4 w-auto brightness-0 invert opacity-50 transition-opacity duration-200 hover:opacity-90"
+            />
+            <img
+              src={pitchsmartLogo}
+              alt="MLB Pitch Smart"
+              className="h-12 w-auto brightness-0 invert opacity-50 transition-opacity duration-200 hover:opacity-90"
+            />
+            <img
+              src={rapsodoLogo}
+              alt="Rapsodo"
+              className="h-7 w-auto brightness-0 invert opacity-50 transition-opacity duration-200 hover:opacity-90"
             />
           </div>
         </div>
@@ -197,6 +241,15 @@ function BullpenIcon() {
       <line x1="12" y1="16" x2="12" y2="22" />
       <line x1="2" y1="12" x2="8" y2="12" />
       <line x1="16" y1="12" x2="22" y2="12" />
+    </svg>
+  )
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10z" />
+      <polyline points="8 12 10.5 12 12 9.5 13.5 14 15 12 16 12" />
     </svg>
   )
 }
