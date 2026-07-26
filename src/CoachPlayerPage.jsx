@@ -9,6 +9,8 @@ import { Header } from './components/Header'
 import { FloatingEquipment } from './components/FloatingEquipment'
 import { TrackingUpload } from './components/TrackingUpload'
 import { Toast } from './components/Toast'
+import { AssignWorkForm } from './components/AssignWorkForm'
+import { loadTypeLabel } from './lib/loadTypes'
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
@@ -33,32 +35,6 @@ const ALERT_LEVELS = {
   gray:   { label: 'No data', banner: 'border-border bg-muted/30',               badge: 'bg-muted text-muted-foreground' },
 }
 
-// Mirrors backend's throw_load_type enum (backNine/src/migrations/021_throwing_workload.sql),
-// minus 'game' — a coach assigns training, not a scheduled game.
-const LOAD_TYPES = [
-  { value: 'bullpen',          label: 'Bullpen' },
-  { value: 'game_performance', label: 'Game Performance' },
-  { value: 'long_toss',        label: 'Long Toss' },
-  { value: 'flat_ground',      label: 'Flat Ground' },
-  { value: 'plyo',             label: 'Plyo / Weighted' },
-  { value: 'warmup',           label: 'Warm-up' },
-  { value: 'recovery',         label: 'Recovery' },
-  { value: 'pulldown',         label: 'Pull-downs' },
-  { value: 'live_ab',          label: 'Live ABs' },
-  { value: 'other',            label: 'Other' },
-]
-
-// Mirrors backend's throw_intensity enum.
-const INTENSITIES = ['low', 'medium', 'high', 'max']
-
-function loadTypeLabel(value) {
-  return LOAD_TYPES.find(t => t.value === value)?.label ?? value
-}
-
-function throwUnitLabel(loadType) {
-  return loadType === 'bullpen' ? 'pitches' : 'throws'
-}
-
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -67,6 +43,27 @@ function formatDate(dateStr) {
 function formatDateShort(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+// An open assignment whose scheduled day has passed is "overdue" — a derived
+// state (no server flag), matching the day-based completion model.
+function isOverdue(a) {
+  if (a.status !== 'open' || !a.dueDate) return false
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const due = new Date(String(a.dueDate).slice(0, 10) + 'T00:00:00')
+  return due < today
+}
+
+function assignmentState(a) {
+  return a.status === 'open' && isOverdue(a) ? 'overdue' : a.status
+}
+
+const ASSIGNMENT_PILL = {
+  open:      { label: 'Open',      cls: 'bg-primary/10 text-primary' },
+  overdue:   { label: 'Overdue',   cls: 'bg-destructive/15 text-destructive' },
+  completed: { label: 'Completed', cls: 'bg-primary/15 text-primary' },
+  skipped:   { label: 'Skipped',   cls: 'bg-muted text-muted-foreground' },
+  canceled:  { label: 'Canceled',  cls: 'bg-muted text-muted-foreground' },
 }
 
 function heightDisplay(cm) {
@@ -107,10 +104,7 @@ export default function CoachPlayerPage() {
   const [authToken, setAuthToken] = useState(null)
   const [showUploadPanel, setShowUploadPanel] = useState(false)
   const [showAssignForm, setShowAssignForm] = useState(false)
-  const [assignForm, setAssignForm] = useState({
-    title: '', loadType: 'bullpen', intensity: 'high', targetThrowCount: 25, notes: '', dueDate: '',
-  })
-  const [isSavingAssignment, setIsSavingAssignment] = useState(false)
+  const [editingAssignment, setEditingAssignment] = useState(null)
   const [toast, setToast] = useState(null) // { message, onUndo }
 
   useEffect(() => {
@@ -216,34 +210,24 @@ export default function CoachPlayerPage() {
     })
   }
 
-  async function createAssignment(e) {
-    e.preventDefault()
-    if (!assignForm.title.trim()) return
-    setIsSavingAssignment(true)
-    try {
-      const res = await fetch(`${BASE_URL}/players/${profileId}/assignments`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: assignForm.title.trim(),
-          loadType: assignForm.loadType,
-          intensity: assignForm.intensity,
-          targetThrowCount: Number(assignForm.targetThrowCount) || 1,
-          notes: assignForm.notes.trim() || undefined,
-          dueDate: assignForm.dueDate || undefined,
-        }),
-      })
-      if (res.ok) {
-        const created = await res.json()
-        setAssignments(prev => [created, ...prev])
-        setAssignForm({ title: '', loadType: 'bullpen', intensity: 'high', targetThrowCount: 25, notes: '', dueDate: '' })
-        setShowAssignForm(false)
-      }
-    } finally {
-      setIsSavingAssignment(false)
+  function handleAssignmentCreated(created) {
+    setAssignments(prev => [created, ...prev])
+    setShowAssignForm(false)
+  }
+
+  function handleAssignmentUpdated(updated) {
+    setAssignments(prev => prev.map(a => (a.id === updated.id ? updated : a)))
+    setEditingAssignment(null)
+  }
+
+  async function skipAssignment(assignment) {
+    const res = await fetch(`${BASE_URL}/assignments/${assignment.id}/skip`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setAssignments(prev => prev.map(a => (a.id === updated.id ? updated : a)))
     }
   }
 
@@ -355,137 +339,92 @@ export default function CoachPlayerPage() {
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Assigned Work</h2>
                 <button
-                  onClick={() => setShowAssignForm(v => !v)}
+                  onClick={() => { setEditingAssignment(null); setShowAssignForm(v => !v) }}
                   className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/50 transition-colors"
                 >
                   {showAssignForm ? 'Cancel' : '+ Assign Work'}
                 </button>
               </div>
 
-              {showAssignForm && (
-                <form
-                  onSubmit={createAssignment}
-                  className="mb-6 space-y-3 rounded-xl border border-border bg-card p-5"
-                >
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Focus</label>
-                    <input
-                      type="text"
-                      required
-                      value={assignForm.title}
-                      onChange={e => setAssignForm(f => ({ ...f, title: e.target.value }))}
-                      placeholder="e.g. Glove-side fastball command"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
-                      <select
-                        value={assignForm.loadType}
-                        onChange={e => setAssignForm(f => ({ ...f, loadType: e.target.value }))}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                      >
-                        {LOAD_TYPES.map(t => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex-1">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Intensity</label>
-                      <select
-                        value={assignForm.intensity}
-                        onChange={e => setAssignForm(f => ({ ...f, intensity: e.target.value }))}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                      >
-                        {INTENSITIES.map(i => (
-                          <option key={i} value={i}>{i[0].toUpperCase() + i.slice(1)}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        {throwUnitLabel(assignForm.loadType)[0].toUpperCase() + throwUnitLabel(assignForm.loadType).slice(1)}
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={assignForm.targetThrowCount}
-                        onChange={e => setAssignForm(f => ({ ...f, targetThrowCount: e.target.value }))}
-                        className="w-24 rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Due date (optional)</label>
-                      <input
-                        type="date"
-                        value={assignForm.dueDate}
-                        onChange={e => setAssignForm(f => ({ ...f, dueDate: e.target.value }))}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Notes (optional)</label>
-                    <textarea
-                      value={assignForm.notes}
-                      onChange={e => setAssignForm(f => ({ ...f, notes: e.target.value }))}
-                      rows={2}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSavingAssignment}
-                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                  >
-                    {isSavingAssignment ? 'Assigning…' : 'Assign'}
-                  </button>
-                </form>
+              {showAssignForm && !editingAssignment && (
+                <AssignWorkForm
+                  playerId={profileId}
+                  authToken={authToken}
+                  onSaved={handleAssignmentCreated}
+                />
               )}
 
-              {assignments.length === 0 && !showAssignForm ? (
+              {assignments.filter(a => a.status !== 'canceled').length === 0 && !showAssignForm ? (
                 <p className="text-sm text-muted-foreground">No work assigned yet.</p>
               ) : (
                 <div className="space-y-2">
-                  {assignments.filter(a => a.status === 'open').map(a => (
-                    <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
-                      <div className="min-w-0">
-                        <div className="mb-1 flex items-center gap-1.5">
-                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                            {loadTypeLabel(a.loadType)}
-                          </span>
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                            {a.intensity}
-                          </span>
-                        </div>
-                        <p className="truncate text-sm font-medium">{a.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {a.completedThrowCount} / {a.targetThrowCount} {throwUnitLabel(a.loadType)}
-                          {a.dueDate && ` · due ${formatDate(a.dueDate)}`}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => cancelAssignment(a)}
-                        className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive"
-                        aria-label="Cancel assignment"
+                  {assignments.filter(a => a.status !== 'canceled').map(a => {
+                    const state = assignmentState(a)
+                    const pill = ASSIGNMENT_PILL[state] ?? ASSIGNMENT_PILL.open
+                    const actionable = a.status === 'open'
+                    const muted = state === 'completed' || state === 'skipped'
+                    if (editingAssignment?.id === a.id) {
+                      return (
+                        <AssignWorkForm
+                          key={a.id}
+                          playerId={profileId}
+                          authToken={authToken}
+                          assignment={a}
+                          onSaved={handleAssignmentUpdated}
+                          onCancel={() => setEditingAssignment(null)}
+                        />
+                      )
+                    }
+                    return (
+                      <div
+                        key={a.id}
+                        className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 ${
+                          state === 'overdue' ? 'border-destructive/40 bg-destructive/5' : 'border-border bg-card'
+                        } ${muted ? 'opacity-70' : ''}`}
                       >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  {assignments.filter(a => a.status === 'completed').map(a => (
-                    <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/50 px-4 py-3 opacity-70">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium line-through">{a.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {a.completedThrowCount} / {a.targetThrowCount} {throwUnitLabel(a.loadType)} · completed
-                        </p>
+                        <div className="min-w-0">
+                          <div className="mb-1 flex items-center gap-1.5">
+                            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                              {loadTypeLabel(a.loadType)}
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{a.intensity}</span>
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${pill.cls}`}>
+                              {pill.label}
+                            </span>
+                          </div>
+                          <p className={`truncate text-sm font-medium ${muted ? 'line-through' : ''}`}>{a.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {a.dueDate ? `Scheduled ${formatDate(a.dueDate)}` : 'No date'}
+                          </p>
+                        </div>
+                        {actionable && (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              onClick={() => { setShowAssignForm(false); setEditingAssignment(a) }}
+                              className="rounded px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                            >
+                              Edit
+                            </button>
+                            {state === 'overdue' && (
+                              <button
+                                onClick={() => skipAssignment(a)}
+                                className="rounded px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                              >
+                                Skip
+                              </button>
+                            )}
+                            <button
+                              onClick={() => cancelAssignment(a)}
+                              className="rounded p-1 text-muted-foreground hover:text-destructive"
+                              aria-label="Cancel assignment"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </section>

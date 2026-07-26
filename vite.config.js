@@ -7,4 +7,10 @@ export default defineConfig({
   optimizeDeps: {
     include: ['recharts', 'recharts/es6/util/ReactUtils'],
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.js'],
+    include: ['src/**/*.test.{js,jsx}'],
+  },
 })
