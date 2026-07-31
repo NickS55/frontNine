@@ -257,17 +257,81 @@ function PitchTooltip({ pitch }) {
 
 // ── Pitch mix table ───────────────────────────────────────────────────────────
 
-function PitchMixTable({ pitches }) {
+// ── tjStuff+ ──────────────────────────────────────────────────────────────────
+// Scale: 100 = MLB average, +10 ≈ one standard deviation better. Colored on the
+// same red→blue percentile idea as Baseball Savant (blue = better).
+
+function stuffColor(v) {
+  if (v == null) return 'var(--muted-foreground, #888)'
+  // 85 → red, 100 → grey, 115 → blue
+  const t = Math.max(0, Math.min(1, (v - 85) / 30))
+  const hue = 8 + t * (222 - 8)   // 8 (red) → 222 (blue)
+  return `hsl(${hue}, 68%, 48%)`
+}
+
+const STUFF_TYPE_LABELS = {
+  FF: 'Fastball', SI: 'Sinker', FC: 'Cutter', SL: 'Slider',
+  CU: 'Curve', CH: 'Change', OT: 'Other',
+}
+
+function StuffPanel({ stuff }) {
+  const overall = stuff.overall
+  const graded = stuff.byPitchType.filter(b => b.stuffPlus != null)
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">Stuff+</h2>
+        <span className="text-xs text-muted-foreground">
+          {stuff.model?.name ?? 'tjStuff+'} · 100 = MLB average
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-6">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Session Overall
+          </span>
+          <span className="text-5xl font-bold tabular-nums" style={{ color: stuffColor(overall) }}>
+            {Math.round(overall)}
+          </span>
+        </div>
+
+        <div className="flex flex-1 flex-wrap gap-2">
+          {graded.map(b => (
+            <div key={b.pitchType} className="rounded-lg border border-border/60 px-3 py-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {STUFF_TYPE_LABELS[b.pitchType] ?? b.pitchType} · {b.count}
+              </div>
+              <div className="text-xl font-bold tabular-nums" style={{ color: stuffColor(b.stuffPlus) }}>
+                {Math.round(b.stuffPlus)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        Graded vs. MLB pitchers — amateur arms typically sit below 100. Pitch-type grades
+        are only comparable within type (a 105 slider ≠ a 105 fastball).
+      </p>
+    </section>
+  )
+}
+
+function PitchMixTable({ pitches, stuffById = {} }) {
   const byType = {}
   for (const p of pitches) {
     const t = p.taggedPitchType ?? 'Unknown'
-    if (!byType[t]) byType[t] = { count: 0, velos: [], spins: [], ivbs: [], hbs: [] }
+    if (!byType[t]) byType[t] = { count: 0, velos: [], spins: [], ivbs: [], hbs: [], stuffs: [] }
     byType[t].count++
     if (p.relSpeed != null)         byType[t].velos.push(Number(p.relSpeed))
     if (p.spinRate != null)         byType[t].spins.push(Number(p.spinRate))
     if (p.inducedVertBreak != null) byType[t].ivbs.push(Number(p.inducedVertBreak))
     if (p.horzBreak != null)        byType[t].hbs.push(Number(p.horzBreak))
+    const s = stuffById[String(p.pitchNumber)]
+    if (s != null) byType[t].stuffs.push(Number(s))
   }
+  const hasStuff = Object.values(byType).some(s => s.stuffs.length > 0)
 
   function avg(arr) {
     if (!arr.length) return null
@@ -289,6 +353,7 @@ function PitchMixTable({ pitches }) {
             <th className="px-4 py-3 text-right font-medium">Avg Spin</th>
             <th className="px-4 py-3 text-right font-medium">IVB</th>
             <th className="px-4 py-3 text-right font-medium">HB</th>
+            {hasStuff && <th className="px-4 py-3 text-right font-medium">Stuff+</th>}
           </tr>
         </thead>
         <tbody>
@@ -298,6 +363,7 @@ function PitchMixTable({ pitches }) {
             const spinAvg  = avg(stats.spins)
             const ivbAvg   = avg(stats.ivbs)
             const hbAvg    = avg(stats.hbs)
+            const stuffAvg = avg(stats.stuffs)
             return (
               <tr key={type} className="border-b border-border/50 last:border-0">
                 <td className="px-4 py-2.5">
@@ -322,6 +388,12 @@ function PitchMixTable({ pitches }) {
                 <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
                   {hbAvg != null ? hbAvg.toFixed(1) : '—'}
                 </td>
+                {hasStuff && (
+                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums"
+                      style={{ color: stuffColor(stuffAvg) }}>
+                    {stuffAvg != null ? Math.round(stuffAvg) : '—'}
+                  </td>
+                )}
               </tr>
             )
           })}
@@ -339,6 +411,7 @@ export default function TrackingSessionPage() {
   const { getToken } = useAuth()
 
   const [pitches, setPitches]    = useState([])
+  const [stuff, setStuff]        = useState(null)   // tjStuff+ grades, or null if unavailable
   const [loading, setLoading]    = useState(true)
   const [error, setError]        = useState(null)
   const [activePitch, setActive] = useState(null)
@@ -352,6 +425,15 @@ export default function TrackingSessionPage() {
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         setPitches(await res.json())
+
+        // Stuff+ grades are best-effort — the page still works if scoring is
+        // unconfigured (503) or the model service is down.
+        try {
+          const sres = await fetch(`${BASE_URL}/tracking-uploads/${uploadId}/stuff`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (sres.ok) setStuff(await sres.json())
+        } catch { /* ignore — panel simply hides */ }
       } catch (err) {
         setError(err.message)
       } finally {
@@ -360,6 +442,10 @@ export default function TrackingSessionPage() {
     }
     load()
   }, [uploadId, getToken])
+
+  // Map PitchNo -> tjStuff+ so the pitch-mix table can show a per-type average.
+  const stuffById = {}
+  if (stuff?.pitches) for (const g of stuff.pitches) stuffById[String(g.id)] = g.stuffPlus
 
   const hoverPitch = activePitch != null ? pitches[activePitch] : null
 
@@ -392,6 +478,9 @@ export default function TrackingSessionPage() {
                 {pitches.length} pitches · TrackMan
               </p>
             </div>
+
+            {/* tjStuff+ — best-effort, hidden when scoring is unavailable */}
+            {stuff && stuff.overall != null && <StuffPanel stuff={stuff} />}
 
             {/* Charts — location + movement side by side */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -442,7 +531,7 @@ export default function TrackingSessionPage() {
             {/* Pitch mix table */}
             <div>
               <h2 className="mb-3 text-lg font-semibold">Pitch Mix</h2>
-              <PitchMixTable pitches={pitches} />
+              <PitchMixTable pitches={pitches} stuffById={stuffById} />
             </div>
           </div>
         )}
