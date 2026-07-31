@@ -269,20 +269,14 @@ function stuffColor(v) {
   return `hsl(${hue}, 68%, 48%)`
 }
 
-const STUFF_TYPE_LABELS = {
-  FF: 'Fastball', SI: 'Sinker', FC: 'Cutter', SL: 'Slider',
-  CU: 'Curve', CH: 'Change', OT: 'Other',
-}
-
-function StuffPanel({ stuff }) {
-  const overall = stuff.overall
-  const graded = stuff.byPitchType.filter(b => b.stuffPlus != null)
+function StuffPanel({ overall, modelName, byType }) {
+  const graded = byType.filter(b => b.stuffPlus != null)
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">Stuff+</h2>
         <span className="text-xs text-muted-foreground">
-          {stuff.model?.name ?? 'tjStuff+'} · 100 = MLB average
+          {modelName ?? 'tjStuff+'} · 100 = MLB average
         </span>
       </div>
 
@@ -300,7 +294,7 @@ function StuffPanel({ stuff }) {
           {graded.map(b => (
             <div key={b.pitchType} className="rounded-lg border border-border/60 px-3 py-2">
               <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {STUFF_TYPE_LABELS[b.pitchType] ?? b.pitchType} · {b.count}
+                {b.pitchType} · {b.count}
               </div>
               <div className="text-xl font-bold tabular-nums" style={{ color: stuffColor(b.stuffPlus) }}>
                 {Math.round(b.stuffPlus)}
@@ -447,6 +441,24 @@ export default function TrackingSessionPage() {
   const stuffById = {}
   if (stuff?.pitches) for (const g of stuff.pitches) stuffById[String(g.id)] = g.stuffPlus
 
+  // Per-type Stuff+ derived from THIS session's pitches (grouped by the same
+  // taggedPitchType the charts/table use), so the panel always agrees with them.
+  const stuffByType = (() => {
+    const agg = {}
+    for (const p of pitches) {
+      const s = stuffById[String(p.pitchNumber)]
+      if (s == null) continue
+      const t = p.taggedPitchType ?? 'Unknown'
+      ;(agg[t] ??= []).push(Number(s))
+    }
+    return Object.entries(agg)
+      .map(([pitchType, arr]) => ({
+        pitchType, count: arr.length,
+        stuffPlus: arr.reduce((a, b) => a + b, 0) / arr.length,
+      }))
+      .sort((a, b) => b.count - a.count)
+  })()
+
   const hoverPitch = activePitch != null ? pitches[activePitch] : null
 
   // Detect handedness from most common pitcher in data
@@ -480,7 +492,9 @@ export default function TrackingSessionPage() {
             </div>
 
             {/* tjStuff+ — best-effort, hidden when scoring is unavailable */}
-            {stuff && stuff.overall != null && <StuffPanel stuff={stuff} />}
+            {stuff && stuff.overall != null && stuffByType.length > 0 && (
+              <StuffPanel overall={stuff.overall} modelName={stuff.model?.name} byType={stuffByType} />
+            )}
 
             {/* Charts — location + movement side by side */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
