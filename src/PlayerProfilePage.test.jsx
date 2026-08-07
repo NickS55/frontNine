@@ -96,9 +96,30 @@ const COMPS = {
   ],
 }
 
-// The page hits three endpoints and fires them from two effects, so ordering a
-// queue of responses is brittle. Dispatch on the URL instead.
-function mockApi({ player = PLAYER, stats = statsFixture(), comps = COMPS, fail = {} } = {}) {
+const BENCHMARKS = {
+  handedness: 'right',
+  pitches: [
+    {
+      pitchType: 'Four-Seam', pitches: 140,
+      metrics: [
+        {
+          metric: 'velocity', label: 'Velocity', unit: 'mph', value: 91.4,
+          percentiles: { high_school: 99, college: 82, mlb: 41 },
+        },
+        {
+          metric: 'spinRate', label: 'Spin Rate', unit: 'rpm', value: 2280,
+          percentiles: { high_school: 95, college: 71, mlb: 38 },
+        },
+      ],
+    },
+  ],
+}
+
+// The page hits four endpoints and fires them from three effects, so ordering
+// a queue of responses is brittle. Dispatch on the URL instead.
+function mockApi({
+  player = PLAYER, stats = statsFixture(), comps = COMPS, benchmarks = BENCHMARKS, fail = {},
+} = {}) {
   const fetchMock = vi.fn(async (url) => {
     const respond = (json, key) => (
       fail[key]
@@ -106,6 +127,7 @@ function mockApi({ player = PLAYER, stats = statsFixture(), comps = COMPS, fail 
         : { ok: true, status: 200, json: async () => json }
     )
     if (url.includes('/comps')) return respond(comps, 'comps')
+    if (url.includes('/benchmarks')) return respond(benchmarks, 'benchmarks')
     if (url.includes('/profile-stats')) return respond(stats, 'stats')
     return respond(player, 'player')
   })
@@ -213,6 +235,37 @@ describe('PlayerProfilePage', () => {
     // The comps card settles after the rest of the page, so wait on it.
     expect(await screen.findByText(/Couldn’t load comparisons/)).toBeInTheDocument()
     // The rest of the profile still renders.
+    expect(screen.getByText('Casey Rivera')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Arsenal' })).toBeInTheDocument()
+  })
+
+  it('shows benchmark percentiles for the default (high school) level', async () => {
+    mockApi()
+    renderAt()
+
+    // "99th pctl" only appears in the benchmark bar — the player's raw 91.4
+    // mph velocity is also echoed in the MLB comps card, so assert on the
+    // percentile label instead of the ambiguous value text.
+    expect(await screen.findByText('99th pctl')).toBeInTheDocument()
+  })
+
+  it('switches benchmark level when a different bracket is selected', async () => {
+    const user = userEvent.setup()
+    mockApi()
+    renderAt()
+
+    await screen.findByText('99th pctl')
+    await user.click(screen.getByRole('button', { name: 'College' }))
+
+    expect(await screen.findByText('82nd pctl')).toBeInTheDocument()
+    expect(screen.queryByText('99th pctl')).not.toBeInTheDocument()
+  })
+
+  it('degrades only the benchmarks card when that request fails', async () => {
+    mockApi({ fail: { benchmarks: 500 } })
+    renderAt()
+
+    expect(await screen.findByText(/Couldn’t load benchmarks/)).toBeInTheDocument()
     expect(screen.getByText('Casey Rivera')).toBeInTheDocument()
     expect(screen.getByRole('table', { name: 'Arsenal' })).toBeInTheDocument()
   })

@@ -8,7 +8,9 @@ import { Header } from './components/Header'
 import { FloatingEquipment } from './components/FloatingEquipment'
 import { BreakPlot } from './components/BreakPlot'
 import { VelocityNormalizeToggle } from './components/VelocityNormalizeToggle'
+import { PercentileBar } from './components/PercentileBar'
 import { pitchColor, CHART_SERIES } from './lib/pitchColors'
+import { LEVEL_OPTIONS, LEVEL_LABELS } from './lib/benchmarkLevels'
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
@@ -448,6 +450,80 @@ function MlbComparisons({ comps, handedness }) {
   )
 }
 
+// ── Benchmark percentiles ────────────────────────────────────────────────────
+
+const METRIC_PLACES = { velocity: 1, spinRate: 0, ivb: 1, hb: 1, extension: 2 }
+
+function BenchmarkCard({ benchmarks, level, onLevelChange }) {
+  return (
+    <div className="space-y-5">
+      <div className="flex w-fit items-center gap-1 rounded-lg border border-border p-1">
+        {LEVEL_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => onLevelChange(opt.value)}
+            className={`cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors ${
+              level === opt.value
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {benchmarks === 'loading' && (
+        <p className="py-4 text-sm text-muted-foreground">Loading benchmarks…</p>
+      )}
+      {(benchmarks === 'error' || !benchmarks) && (
+        <p className="py-4 text-sm text-muted-foreground">Couldn’t load benchmarks. Refresh to try again.</p>
+      )}
+      {benchmarks && benchmarks !== 'loading' && benchmarks !== 'error' && (
+        benchmarks.pitches.length === 0 ? (
+          <p className="py-4 text-sm text-muted-foreground">
+            Throw at least 15 tracked pitches of one type to unlock benchmark percentiles.
+          </p>
+        ) : (
+          <div className="space-y-5">
+            {benchmarks.pitches.map(p => {
+              const shown = p.metrics.filter(m => m.percentiles[level] != null)
+              if (shown.length === 0) return null
+              return (
+                <div key={p.pitchType} className="border-t border-border pt-4 first:border-0 first:pt-0">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ background: pitchColor(p.pitchType) }}
+                    />
+                    <h3 className="font-semibold">{p.pitchType}</h3>
+                    <span className="text-xs text-muted-foreground">{p.pitches} thrown</span>
+                  </div>
+                  {shown.map(m => (
+                    <PercentileBar
+                      key={m.metric}
+                      label={m.label}
+                      unit={m.unit}
+                      value={m.value}
+                      places={METRIC_PLACES[m.metric] ?? 1}
+                      percentile={m.percentiles[level]}
+                    />
+                  ))}
+                </div>
+              )
+            })}
+            <p className="text-xs text-muted-foreground">
+              {level === 'mlb'
+                ? 'Ranked against real 2026 MLB per-pitcher averages for pitches with enough MLB comparables.'
+                : `${LEVEL_LABELS[level]} percentiles are estimates from published aggregate benchmarks, not a full distribution — movement (IVB/HB/extension) isn't publicly available at this level, so only velocity and spin rate show.`}
+            </p>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
 // ── Small labelled rows used by the detail cards ──────────────────────────────
 
 function DetailRow({ label, value, note }) {
@@ -485,6 +561,8 @@ export default function PlayerProfilePage() {
   const [stats, setStats] = useState(null)
   const [comps, setComps] = useState('loading')
   const [normalizeVelocity, setNormalizeVelocity] = useState(true)
+  const [benchmarks, setBenchmarks] = useState('loading')
+  const [benchmarkLevel, setBenchmarkLevel] = useState('high_school')
   const [windowDays, setWindowDays] = useState(30)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -560,6 +638,31 @@ export default function PlayerProfilePage() {
     fetchComps()
     return () => { cancelled = true }
   }, [playerId, normalizeVelocity, getToken])
+
+  // Benchmarks are career-based like comps — one fetch covers all three
+  // levels, since only the client-side selection of which to display changes.
+  useEffect(() => {
+    if (!playerId) return
+    let cancelled = false
+
+    async function fetchBenchmarks() {
+      setBenchmarks('loading')
+      try {
+        const token = await getToken()
+        const res = await fetch(
+          `${BASE_URL}/players/${playerId}/benchmarks`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        if (!cancelled) setBenchmarks(await res.json())
+      } catch {
+        if (!cancelled) setBenchmarks('error')
+      }
+    }
+
+    fetchBenchmarks()
+    return () => { cancelled = true }
+  }, [playerId, getToken])
 
   const hasTracked = (stats?.totals?.trackedPitches ?? 0) > 0
 
@@ -717,6 +820,18 @@ export default function PlayerProfilePage() {
             {/* ── Arsenal ── */}
             <Card title="Arsenal">
               <ArsenalTable arsenal={stats.arsenal} />
+            </Card>
+
+            {/* ── Benchmarks ── */}
+            <Card
+              title="Benchmarks"
+              action={<span className="text-xs text-muted-foreground">career averages vs. level norms</span>}
+            >
+              <BenchmarkCard
+                benchmarks={benchmarks}
+                level={benchmarkLevel}
+                onLevelChange={setBenchmarkLevel}
+              />
             </Card>
 
             {/* ── Movement ── */}
