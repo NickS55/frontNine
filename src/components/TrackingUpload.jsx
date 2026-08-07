@@ -179,10 +179,23 @@ export function TrackingUpload({ playerId, authToken, onSuccess }) {
           }
           const pitcherOptions = Object.values(pitcherMap).sort((a, b) => b.count - a.count)
 
+          // A file with no Pitcher column at all is legitimately a single
+          // implicit pitcher (some bullpen exports don't label it) — but a
+          // Pitcher column that's present yet parsed to zero names means
+          // detection failed on every row (header casing/whitespace drift,
+          // unexpected export format, etc). Uploading unfiltered in that case
+          // would silently attribute every pitcher in a whole-game file to
+          // this one player, so refuse rather than guess.
+          const hasPitcherColumn = (meta.fields ?? []).includes('Pitcher')
+          if (pitcherOptions.length === 0 && hasPitcherColumn) {
+            setError('Couldn’t identify pitcher names in this file’s Pitcher column. Refusing to upload, since that could mix in other pitchers’ pitches. Check the file and try again.')
+            return
+          }
+
           setRaw({ allPitches, csvText, filename: file.name, sessionDate, device, pitcherOptions })
 
           if (pitcherOptions.length <= 1) {
-            // Only one pitcher (or column missing) — skip selection
+            // Only one pitcher (or no Pitcher column at all) — skip selection
             commitPitcher(pitcherOptions[0]?.name ?? null, allPitches, csvText, file.name, sessionDate, device)
           } else {
             setState('selecting')
