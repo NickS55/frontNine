@@ -454,23 +454,47 @@ function MlbComparisons({ comps, handedness }) {
 
 const METRIC_PLACES = { velocity: 1, spinRate: 0, ivb: 1, hb: 1, extension: 2 }
 
-function BenchmarkCard({ benchmarks, level, onLevelChange }) {
+/** A metric's percentile at the active level — college drills into the chosen division. */
+function percentileFor(metric, level, division) {
+  if (level === 'college') return metric.percentiles.college?.[division] ?? null
+  return metric.percentiles[level]
+}
+
+function BenchmarkCard({ benchmarks, level, onLevelChange, division, onDivisionChange }) {
+  const divisions = benchmarks && benchmarks !== 'loading' && benchmarks !== 'error'
+    ? benchmarks.collegeDivisions ?? []
+    : []
+
   return (
     <div className="space-y-5">
-      <div className="flex w-fit items-center gap-1 rounded-lg border border-border p-1">
-        {LEVEL_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => onLevelChange(opt.value)}
-            className={`cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors ${
-              level === opt.value
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-fit items-center gap-1 rounded-lg border border-border p-1">
+          {LEVEL_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => onLevelChange(opt.value)}
+              className={`cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors ${
+                level === opt.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {level === 'college' && divisions.length > 0 && (
+          <select
+            value={division}
+            onChange={e => onDivisionChange(e.target.value)}
+            className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground"
           >
-            {opt.label}
-          </button>
-        ))}
+            {divisions.map(d => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {benchmarks === 'loading' && (
@@ -487,7 +511,9 @@ function BenchmarkCard({ benchmarks, level, onLevelChange }) {
         ) : (
           <div className="space-y-5">
             {benchmarks.pitches.map(p => {
-              const shown = p.metrics.filter(m => m.percentiles[level] != null)
+              const shown = p.metrics
+                .map(m => ({ ...m, percentile: percentileFor(m, level, division) }))
+                .filter(m => m.percentile != null)
               if (shown.length === 0) return null
               return (
                 <div key={p.pitchType} className="border-t border-border pt-4 first:border-0 first:pt-0">
@@ -506,7 +532,7 @@ function BenchmarkCard({ benchmarks, level, onLevelChange }) {
                       unit={m.unit}
                       value={m.value}
                       places={METRIC_PLACES[m.metric] ?? 1}
-                      percentile={m.percentiles[level]}
+                      percentile={m.percentile}
                     />
                   ))}
                 </div>
@@ -563,6 +589,7 @@ export default function PlayerProfilePage() {
   const [normalizeVelocity, setNormalizeVelocity] = useState(true)
   const [benchmarks, setBenchmarks] = useState('loading')
   const [benchmarkLevel, setBenchmarkLevel] = useState('high_school')
+  const [collegeDivision, setCollegeDivision] = useState('d1_mid')
   const [windowDays, setWindowDays] = useState(30)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -831,6 +858,8 @@ export default function PlayerProfilePage() {
                 benchmarks={benchmarks}
                 level={benchmarkLevel}
                 onLevelChange={setBenchmarkLevel}
+                division={collegeDivision}
+                onDivisionChange={setCollegeDivision}
               />
             </Card>
 

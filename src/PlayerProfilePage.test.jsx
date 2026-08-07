@@ -96,19 +96,37 @@ const COMPS = {
   ],
 }
 
+const COLLEGE_DIVISIONS = [
+  { value: 'd1_elite', label: 'D1 Power Conference' },
+  { value: 'd1_mid', label: 'D1 Mid-Major' },
+  { value: 'd1_low', label: 'D1 Low-Major' },
+  { value: 'd2', label: 'D2' },
+  { value: 'd3', label: 'D3' },
+  { value: 'naia_juco', label: 'NAIA / JUCO' },
+]
+
 const BENCHMARKS = {
   handedness: 'right',
+  collegeDivisions: COLLEGE_DIVISIONS,
   pitches: [
     {
       pitchType: 'Four-Seam', pitches: 140,
       metrics: [
         {
           metric: 'velocity', label: 'Velocity', unit: 'mph', value: 91.4,
-          percentiles: { high_school: 99, college: 82, mlb: 41 },
+          percentiles: {
+            high_school: 99,
+            college: { d1_elite: 22, d1_mid: 82, d1_low: 91, d2: 88, d3: 96, naia_juco: 85 },
+            mlb: 41,
+          },
         },
         {
           metric: 'spinRate', label: 'Spin Rate', unit: 'rpm', value: 2280,
-          percentiles: { high_school: 95, college: 71, mlb: 38 },
+          percentiles: {
+            high_school: 95,
+            college: { d1_elite: 71, d1_mid: 71, d1_low: 71, d2: 71, d3: 71, naia_juco: 71 },
+            mlb: 38,
+          },
         },
       ],
     },
@@ -259,6 +277,20 @@ describe('PlayerProfilePage', () => {
 
     expect(await screen.findByText('82nd pctl')).toBeInTheDocument()
     expect(screen.queryByText('99th pctl')).not.toBeInTheDocument()
+  })
+
+  it('switches college division without changing the level', async () => {
+    const user = userEvent.setup()
+    mockApi()
+    renderAt()
+
+    await screen.findByText('99th pctl')
+    await user.click(screen.getByRole('button', { name: 'College' }))
+    expect(await screen.findByText('82nd pctl')).toBeInTheDocument() // d1_mid default
+
+    await user.selectOptions(screen.getByRole('combobox'), 'd1_elite')
+    expect(await screen.findByText('22nd pctl')).toBeInTheDocument()
+    expect(screen.queryByText('82nd pctl')).not.toBeInTheDocument()
   })
 
   it('degrades only the benchmarks card when that request fails', async () => {
