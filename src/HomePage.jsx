@@ -447,6 +447,13 @@ export default function HomePage() {
                   {profile.weightKg != null && <span>{Math.round(profile.weightKg * 2.205)} lbs</span>}
                   {profile.homeCity && <span>{profile.homeCity}</span>}
                 </div>
+
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="mt-3 cursor-pointer rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary/50 hover:text-primary"
+                >
+                  View performance profile →
+                </button>
               </div>
             </section>
 

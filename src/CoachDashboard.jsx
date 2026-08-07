@@ -489,8 +489,18 @@ export default function CoachDashboard() {
                     </div>
                   ) : null}
                 </div>
-                {player.isPending && (
+                {player.isPending ? (
                   <ResendInviteButton inviteId={player.id} />
+                ) : (
+                  // Jumps straight to the performance profile — the card itself
+                  // still opens the coach's management view for this player.
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate(`/profile/${player.id}`) }}
+                    title={`${player.name}'s performance profile`}
+                    className="shrink-0 cursor-pointer rounded-lg border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                  >
+                    Profile
+                  </button>
                 )}
               </div>
             ))}

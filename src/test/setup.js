@@ -2,6 +2,17 @@ import '@testing-library/jest-dom'
 import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
+// jsdom has no ResizeObserver, which recharts' ResponsiveContainer constructs on
+// mount. Any page with a chart would throw without this stub. Charts render at
+// 0×0 in tests — assert on the data around them, not on plotted geometry.
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}
+
 // Unmount React trees and reset mocks between tests so they don't leak state.
 afterEach(() => {
   cleanup()

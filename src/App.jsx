@@ -8,6 +8,7 @@ import BullpenSessionPage from './BullpenSessionPage'
 import PitchDnaPage from './PitchDnaPage'
 import InvitePage from './InvitePage'
 import CoachPlayerPage from './CoachPlayerPage'
+import PlayerProfilePage from './PlayerProfilePage'
 import TrackingSessionPage from './TrackingSessionPage'
 import NotFoundPage from './NotFoundPage'
 import './App.css'
@@ -24,6 +25,8 @@ export default function App() {
       <Route path="/pitch-dna" element={<PitchDnaPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route path="/coach/player/:profileId" element={<CoachPlayerPage />} />
+      <Route path="/profile" element={<PlayerProfilePage />} />
+      <Route path="/profile/:profileId" element={<PlayerProfilePage />} />
       <Route path="/tracking-uploads/:uploadId" element={<TrackingSessionPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

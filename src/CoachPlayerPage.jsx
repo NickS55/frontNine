@@ -325,6 +325,13 @@ export default function CoachPlayerPage() {
                     {player.phone && <a href={`tel:${player.phone}`} className="text-muted-foreground hover:text-foreground">{player.phone}</a>}
                   </div>
                 )}
+
+                <button
+                  onClick={() => navigate(`/profile/${profileId}`)}
+                  className="mt-3 cursor-pointer rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary/50 hover:text-primary"
+                >
+                  View performance profile →
+                </button>
               </div>
             </section>
 

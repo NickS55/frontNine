@@ -2,31 +2,11 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Header } from './components/Header'
+import { pitchColor } from './lib/pitchColors'
+import { BreakPlot } from './components/BreakPlot'
 import { FloatingEquipment } from './components/FloatingEquipment'
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
-
-// ── Pitch type colors (TrackMan full names) ───────────────────────────────────
-
-const PITCH_COLORS = {
-  'Four-Seam':     '#D93025',
-  'Fastball':      '#D93025',
-  'Sinker':        '#1A9BB5',
-  'Two-Seam':      '#1A9BB5',
-  'Cutter':        '#E8620A',
-  'Slider':        '#E8930A',
-  'Sweeper':       '#5E9E1A',
-  'Curveball':     '#1A4FD6',
-  'Knuckle Curve': '#1A4FD6',
-  'Changeup':      '#C8A800',
-  'Splitter':      '#7B3BB5',
-  'Other':         '#888888',
-  'Undefined':     '#aaaaaa',
-}
-
-function pitchColor(type) {
-  return PITCH_COLORS[type] ?? '#888888'
-}
 
 // ── Plate location chart ──────────────────────────────────────────────────────
 // Catcher's perspective: positive side = catcher's right
@@ -141,101 +121,27 @@ function PlateChart({ pitches, activePitch, onHover }) {
 }
 
 // ── Movement chart (individual pitch scatter) ─────────────────────────────────
-
-const MV_CX = 125
-const MV_CY = 125
-const MV_R  = 108
-const MV_SCALE = MV_R / 24  // 24 inches max
-
-function mvToSvg(hb, ivb) {
-  const x = MV_CX + hb * MV_SCALE
-  const y = MV_CY - ivb * MV_SCALE
-  const dx = x - MV_CX, dy = y - MV_CY
-  const dist = Math.sqrt(dx * dx + dy * dy)
-  if (dist > MV_R) {
-    const r = MV_R / dist
-    return { x: MV_CX + dx * r, y: MV_CY + dy * r }
-  }
-  return { x, y }
-}
+// Geometry lives in BreakPlot, shared with the player profile page. Here every
+// tracked pitch is its own dot, keyed by index so hover ties back to the table.
 
 function MovementPlot({ pitches, activePitch, onHover, handedness }) {
-  const rings = [6, 12, 18, 24]
-  const armLabel   = handedness === 'L' ? '3B' : '1B'
-  const gloveLabel = handedness === 'L' ? '1B' : '3B'
+  const points = pitches.map((p, i) => ({
+    id:    i,
+    hb:    p.horzBreak,
+    ivb:   p.inducedVertBreak,
+    color: pitchColor(p.taggedPitchType),
+  }))
 
   return (
-    <div>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
-        color: '#5a6a7a', marginBottom: 2, textTransform: 'uppercase',
-      }}>
-        <span style={{ color: '#8a9aaa' }}>◄ {gloveLabel}</span>
-        <span style={{ flex: 1, borderTop: '1px dashed #333', margin: '0 4px' }} />
-        <span style={{ fontSize: 9, color: '#5a6a7a' }}>MOVES TOWARD</span>
-        <span style={{ flex: 1, borderTop: '1px dashed #333', margin: '0 4px' }} />
-        <span style={{ color: '#8a9aaa' }}>{armLabel} ►</span>
-      </div>
-
-      <svg viewBox="0 0 250 250" width="100%" style={{ display: 'block' }}>
-        <rect width={250} height={250} fill="hsl(220 13% 9%)" rx="8" />
-        <defs>
-          <clipPath id="mv-clip"><circle cx={MV_CX} cy={MV_CY} r={MV_R} /></clipPath>
-        </defs>
-
-        <circle cx={MV_CX} cy={MV_CY} r={MV_R} fill="rgba(255,255,255,0.03)" />
-
-        {rings.map(r => (
-          <circle key={r} cx={MV_CX} cy={MV_CY} r={r * MV_SCALE}
-            fill="none" stroke="rgba(255,255,255,0.1)"
-            strokeWidth={r === 24 ? 1.5 : 0.8} />
-        ))}
-        <line x1={MV_CX - MV_R} y1={MV_CY} x2={MV_CX + MV_R} y2={MV_CY}
-          stroke="rgba(255,255,255,0.15)" strokeWidth={0.8} />
-        <line x1={MV_CX} y1={MV_CY - MV_R} x2={MV_CX} y2={MV_CY + MV_R}
-          stroke="rgba(255,255,255,0.15)" strokeWidth={0.8} />
-
-        {[6, 12, 18].map(r => (
-          <text key={r}
-            x={MV_CX + r * MV_SCALE * 0.707 + 2}
-            y={MV_CY - r * MV_SCALE * 0.707 + 3}
-            fontSize={7} fill="rgba(255,255,255,0.25)" fontWeight={600}>{r}"</text>
-        ))}
-
-        <g clipPath="url(#mv-clip)">
-          {pitches.map((p, i) => {
-            if (p.horzBreak == null || p.inducedVertBreak == null) return null
-            const { x, y } = mvToSvg(p.horzBreak, p.inducedVertBreak)
-            const color = pitchColor(p.taggedPitchType)
-            const isActive = activePitch === i
-            return (
-              <circle key={i} cx={x} cy={y}
-                r={isActive ? 6 : 4}
-                fill={color}
-                fillOpacity={isActive ? 1 : 0.75}
-                stroke={isActive ? 'white' : 'none'}
-                strokeWidth={1.5}
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={() => onHover(i)}
-                onMouseLeave={() => onHover(null)}
-              />
-            )
-          })}
-        </g>
-
-        <text x={MV_CX} y={MV_CY - MV_R + 11} textAnchor="middle"
-          fontSize={7} fill="rgba(255,255,255,0.25)" fontWeight={700} letterSpacing="0.06em">
-          ▲ MORE RISE
-        </text>
-        <text x={MV_CX} y={MV_CY + MV_R - 4} textAnchor="middle"
-          fontSize={7} fill="rgba(255,255,255,0.25)" fontWeight={700} letterSpacing="0.06em">
-          ▼ MORE DROP
-        </text>
-      </svg>
-    </div>
+    <BreakPlot
+      points={points}
+      handedness={handedness}
+      activeId={activePitch}
+      onHover={onHover}
+    />
   )
 }
+
 
 // ── Pitch tooltip ─────────────────────────────────────────────────────────────
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Header } from './components/Header'
 import { MovementChart } from './components/MovementChart'
+import { VelocityNormalizeToggle } from './components/VelocityNormalizeToggle'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
 
@@ -246,32 +247,10 @@ export default function PitchDnaPage() {
               </div>
             </div>
 
-            {/* Velocity normalization toggle */}
-            <div className="rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Normalize for velocity</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {normalizeVelocity
-                      ? 'Compares movement shape regardless of how hard you throw — recommended for youth/HS pitchers.'
-                      : 'Compares raw numbers. Best when your velocity is similar to MLB.'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setNormalizeVelocity(v => !v)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                    normalizeVelocity ? 'bg-primary' : 'bg-muted'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                      normalizeVelocity ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
+            <VelocityNormalizeToggle
+              value={normalizeVelocity}
+              onChange={setNormalizeVelocity}
+            />
 
             <button
               type="submit"
