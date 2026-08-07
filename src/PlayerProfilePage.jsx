@@ -10,7 +10,7 @@ import { BreakPlot } from './components/BreakPlot'
 import { VelocityNormalizeToggle } from './components/VelocityNormalizeToggle'
 import { PercentileBar } from './components/PercentileBar'
 import { pitchColor, CHART_SERIES } from './lib/pitchColors'
-import { stuffColor } from './lib/stuffColor'
+import { buildStuffTrendSeries } from './lib/stuffTrend'
 import { LEVEL_OPTIONS, LEVEL_LABELS } from './lib/benchmarkLevels'
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
@@ -188,27 +188,26 @@ function VeloTrendChart({ trend, onSelect }) {
 
 function StuffTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
-  const point = payload[0]
+  const byPitchType = payload[0]?.payload?.byPitchType ?? []
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-lg">
       <p className="mb-1 text-xs font-semibold text-foreground">{formatDate(label)}</p>
-      <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="inline-block h-2 w-2 rounded-full" style={{ background: stuffColor(point.value) }} />
-        Stuff+
-        <span className="ml-auto font-semibold tabular-nums text-foreground">
-          {point.value == null ? '—' : Math.round(point.value)}
-        </span>
-      </p>
-      {point.payload?.pitches != null && (
-        <p className="mt-1 text-[11px] text-muted-foreground">{point.payload.pitches} pitches tracked</p>
-      )}
+      {byPitchType.map(b => (
+        <p key={b.pitchType} className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: pitchColor(b.pitchType) }} />
+          {b.pitchType}
+          <span className="ml-auto font-semibold tabular-nums text-foreground">
+            {b.stuffPlus == null ? '—' : Math.round(b.stuffPlus)}
+          </span>
+        </p>
+      ))}
     </div>
   )
 }
 
-function StuffDot({ cx, cy, payload }) {
+function StuffDot({ cx, cy, stroke }) {
   if (cx == null || cy == null) return null
-  return <circle cx={cx} cy={cy} r={4} fill={stuffColor(payload.stuffPlus)} stroke="var(--card)" strokeWidth={1.5} />
+  return <circle cx={cx} cy={cy} r={3.5} fill={stroke} stroke="var(--card)" strokeWidth={1.5} />
 }
 
 function StuffTrendChart({ trend, onSelect }) {
@@ -220,11 +219,13 @@ function StuffTrendChart({ trend, onSelect }) {
     )
   }
 
+  const { pitchTypes, data } = buildStuffTrendSeries(trend)
+
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
-          data={trend}
+          data={data}
           margin={{ top: 8, right: 12, bottom: 4, left: -16 }}
           onClick={e => {
             const uploadId = e?.activePayload?.[0]?.payload?.uploadId
@@ -251,13 +252,20 @@ function StuffTrendChart({ trend, onSelect }) {
             label={{ value: 'MLB avg', position: 'insideTopRight', fill: 'var(--muted-foreground)', fontSize: 11 }}
           />
           <Tooltip content={<StuffTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
-          <Line
-            type="monotone" dataKey="stuffPlus" name="Stuff+"
-            stroke="var(--muted-foreground)" strokeWidth={2}
-            dot={<StuffDot />}
-            activeDot={{ r: 6, stroke: 'var(--card)', strokeWidth: 2 }}
-            connectNulls
+          <Legend
+            wrapperStyle={{ fontSize: 12, color: 'var(--muted-foreground)', paddingTop: 4 }}
+            iconType="plainline"
           />
+          {pitchTypes.map(pitchType => (
+            <Line
+              key={pitchType}
+              type="monotone" dataKey={pitchType} name={pitchType}
+              stroke={pitchColor(pitchType)} strokeWidth={2}
+              dot={<StuffDot />}
+              activeDot={{ r: 5, stroke: 'var(--card)', strokeWidth: 2 }}
+              connectNulls
+            />
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>

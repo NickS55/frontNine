@@ -136,8 +136,20 @@ const BENCHMARKS = {
 const STUFF_TREND = {
   model: { id: 'tjstuff_plus_v3_2020_2023', name: 'tjStuff+ (v3, MLB-calibrated)' },
   trend: [
-    { uploadId: 'u1', date: '2026-07-10', sessionType: 'game', pitches: 45, stuffPlus: 92.1 },
-    { uploadId: 'u2', date: '2026-07-30', sessionType: 'game', pitches: 52, stuffPlus: 101.4 },
+    {
+      uploadId: 'u1', date: '2026-07-10', sessionType: 'game', pitches: 45, overall: 92.1,
+      byPitchType: [
+        { pitchType: 'Four-Seam', count: 30, stuffPlus: 95.0 },
+        { pitchType: 'Slider', count: 15, stuffPlus: 86.4 },
+      ],
+    },
+    {
+      uploadId: 'u2', date: '2026-07-30', sessionType: 'game', pitches: 52, overall: 101.4,
+      byPitchType: [
+        { pitchType: 'Four-Seam', count: 35, stuffPlus: 108.2 },
+        { pitchType: 'Slider', count: 17, stuffPlus: 90.1 },
+      ],
+    },
   ],
 }
 
