@@ -3,6 +3,7 @@ import { useAuth } from '@clerk/clerk-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Header } from './components/Header'
 import { pitchColor } from './lib/pitchColors'
+import { stuffColor } from './lib/stuffColor'
 import { BreakPlot } from './components/BreakPlot'
 import { FloatingEquipment } from './components/FloatingEquipment'
 
@@ -164,16 +165,6 @@ function PitchTooltip({ pitch }) {
 // ── Pitch mix table ───────────────────────────────────────────────────────────
 
 // ── tjStuff+ ──────────────────────────────────────────────────────────────────
-// Scale: 100 = MLB average, +10 ≈ one standard deviation better. Colored on the
-// same red→blue percentile idea as Baseball Savant (blue = better).
-
-function stuffColor(v) {
-  if (v == null) return 'var(--muted-foreground, #888)'
-  // 85 → red, 100 → grey, 115 → blue
-  const t = Math.max(0, Math.min(1, (v - 85) / 30))
-  const hue = 8 + t * (222 - 8)   // 8 (red) → 222 (blue)
-  return `hsl(${hue}, 68%, 48%)`
-}
 
 function StuffPanel({ overall, modelName, byType }) {
   const graded = byType.filter(b => b.stuffPlus != null)

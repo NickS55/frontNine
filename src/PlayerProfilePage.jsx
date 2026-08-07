@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import { Header } from './components/Header'
 import { FloatingEquipment } from './components/FloatingEquipment'
@@ -10,6 +10,7 @@ import { BreakPlot } from './components/BreakPlot'
 import { VelocityNormalizeToggle } from './components/VelocityNormalizeToggle'
 import { PercentileBar } from './components/PercentileBar'
 import { pitchColor, CHART_SERIES } from './lib/pitchColors'
+import { stuffColor } from './lib/stuffColor'
 import { LEVEL_OPTIONS, LEVEL_LABELS } from './lib/benchmarkLevels'
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://backnine-production-eb29.up.railway.app'
@@ -179,6 +180,117 @@ function VeloTrendChart({ trend, onSelect }) {
           />
         </LineChart>
       </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ── Stuff+ trend ──────────────────────────────────────────────────────────────
+
+function StuffTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  const point = payload[0]
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-lg">
+      <p className="mb-1 text-xs font-semibold text-foreground">{formatDate(label)}</p>
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="inline-block h-2 w-2 rounded-full" style={{ background: stuffColor(point.value) }} />
+        Stuff+
+        <span className="ml-auto font-semibold tabular-nums text-foreground">
+          {point.value == null ? '—' : Math.round(point.value)}
+        </span>
+      </p>
+      {point.payload?.pitches != null && (
+        <p className="mt-1 text-[11px] text-muted-foreground">{point.payload.pitches} pitches tracked</p>
+      )}
+    </div>
+  )
+}
+
+function StuffDot({ cx, cy, payload }) {
+  if (cx == null || cy == null) return null
+  return <circle cx={cx} cy={cy} r={4} fill={stuffColor(payload.stuffPlus)} stroke="var(--card)" strokeWidth={1.5} />
+}
+
+function StuffTrendChart({ trend, onSelect }) {
+  if (trend.length < 2) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        Two or more graded sessions are needed to plot a Stuff+ trend.
+      </p>
+    )
+  }
+
+  return (
+    <div className="h-72 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart
+          data={trend}
+          margin={{ top: 8, right: 12, bottom: 4, left: -16 }}
+          onClick={e => {
+            const uploadId = e?.activePayload?.[0]?.payload?.uploadId
+            if (uploadId) onSelect(uploadId)
+          }}
+        >
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={formatDateShort}
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+            stroke="var(--border)"
+          />
+          <YAxis
+            domain={['dataMin - 5', 'dataMax + 5']}
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+            stroke="var(--border)"
+            width={40}
+          />
+          <ReferenceLine
+            y={100}
+            stroke="var(--muted-foreground)"
+            strokeDasharray="4 4"
+            label={{ value: 'MLB avg', position: 'insideTopRight', fill: 'var(--muted-foreground)', fontSize: 11 }}
+          />
+          <Tooltip content={<StuffTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+          <Line
+            type="monotone" dataKey="stuffPlus" name="Stuff+"
+            stroke="var(--muted-foreground)" strokeWidth={2}
+            dot={<StuffDot />}
+            activeDot={{ r: 6, stroke: 'var(--card)', strokeWidth: 2 }}
+            connectNulls
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function StuffTrendCard({ stuffTrend, onSelect }) {
+  if (stuffTrend === 'loading') {
+    return <p className="py-4 text-sm text-muted-foreground">Loading Stuff+…</p>
+  }
+  if (stuffTrend === 'unavailable') {
+    return (
+      <p className="py-4 text-sm text-muted-foreground">
+        Stuff+ scoring isn’t configured for this environment.
+      </p>
+    )
+  }
+  if (stuffTrend === 'error' || !stuffTrend) {
+    return <p className="py-4 text-sm text-muted-foreground">Couldn’t load Stuff+. Refresh to try again.</p>
+  }
+  if (stuffTrend.trend.length === 0) {
+    return (
+      <p className="py-4 text-sm text-muted-foreground">
+        No graded sessions yet — Stuff+ needs a TrackMan CSV upload with release and movement data.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      <StuffTrendChart trend={stuffTrend.trend} onSelect={onSelect} />
+      <p className="text-xs text-muted-foreground">
+        {stuffTrend.model?.name ?? 'tjStuff+'} · 100 = MLB average, higher = nastier.
+      </p>
     </div>
   )
 }
@@ -590,6 +702,7 @@ export default function PlayerProfilePage() {
   const [benchmarks, setBenchmarks] = useState('loading')
   const [benchmarkLevel, setBenchmarkLevel] = useState('high_school')
   const [collegeDivision, setCollegeDivision] = useState('d1_mid')
+  const [stuffTrend, setStuffTrend] = useState('loading')
   const [windowDays, setWindowDays] = useState(30)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -688,6 +801,34 @@ export default function PlayerProfilePage() {
     }
 
     fetchBenchmarks()
+    return () => { cancelled = true }
+  }, [playerId, getToken])
+
+  // Stuff+ grading needs an S3 read plus a call to an external model service
+  // per ungraded session, so this is slower than the other cards and gets its
+  // own effect — a failure or an unconfigured model shouldn't block anything
+  // else on the page.
+  useEffect(() => {
+    if (!playerId) return
+    let cancelled = false
+
+    async function fetchStuffTrend() {
+      setStuffTrend('loading')
+      try {
+        const token = await getToken()
+        const res = await fetch(
+          `${BASE_URL}/players/${playerId}/stuff-trend`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+        if (res.status === 503) { if (!cancelled) setStuffTrend('unavailable'); return }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        if (!cancelled) setStuffTrend(await res.json())
+      } catch {
+        if (!cancelled) setStuffTrend('error')
+      }
+    }
+
+    fetchStuffTrend()
     return () => { cancelled = true }
   }, [playerId, getToken])
 
@@ -840,6 +981,22 @@ export default function PlayerProfilePage() {
             >
               <VeloTrendChart
                 trend={stats.veloTrend}
+                onSelect={uploadId => navigate(`/tracking-uploads/${uploadId}`)}
+              />
+            </Card>
+
+            {/* ── Stuff+ trend ── */}
+            <Card
+              title="Stuff+ Over Time"
+              action={
+                stuffTrend !== 'loading' && stuffTrend !== 'error' && stuffTrend !== 'unavailable'
+                && stuffTrend?.trend?.length > 1 && (
+                  <span className="text-xs text-muted-foreground">click a point to open the session</span>
+                )
+              }
+            >
+              <StuffTrendCard
+                stuffTrend={stuffTrend}
                 onSelect={uploadId => navigate(`/tracking-uploads/${uploadId}`)}
               />
             </Card>

@@ -133,10 +133,19 @@ const BENCHMARKS = {
   ],
 }
 
-// The page hits four endpoints and fires them from three effects, so ordering
+const STUFF_TREND = {
+  model: { id: 'tjstuff_plus_v3_2020_2023', name: 'tjStuff+ (v3, MLB-calibrated)' },
+  trend: [
+    { uploadId: 'u1', date: '2026-07-10', sessionType: 'game', pitches: 45, stuffPlus: 92.1 },
+    { uploadId: 'u2', date: '2026-07-30', sessionType: 'game', pitches: 52, stuffPlus: 101.4 },
+  ],
+}
+
+// The page hits five endpoints and fires them from four effects, so ordering
 // a queue of responses is brittle. Dispatch on the URL instead.
 function mockApi({
-  player = PLAYER, stats = statsFixture(), comps = COMPS, benchmarks = BENCHMARKS, fail = {},
+  player = PLAYER, stats = statsFixture(), comps = COMPS, benchmarks = BENCHMARKS,
+  stuffTrend = STUFF_TREND, fail = {},
 } = {}) {
   const fetchMock = vi.fn(async (url) => {
     const respond = (json, key) => (
@@ -146,6 +155,7 @@ function mockApi({
     )
     if (url.includes('/comps')) return respond(comps, 'comps')
     if (url.includes('/benchmarks')) return respond(benchmarks, 'benchmarks')
+    if (url.includes('/stuff-trend')) return respond(stuffTrend, 'stuffTrend')
     if (url.includes('/profile-stats')) return respond(stats, 'stats')
     return respond(player, 'player')
   })
@@ -255,6 +265,30 @@ describe('PlayerProfilePage', () => {
     // The rest of the profile still renders.
     expect(screen.getByText('Casey Rivera')).toBeInTheDocument()
     expect(screen.getByRole('table', { name: 'Arsenal' })).toBeInTheDocument()
+  })
+
+  it('renders the Stuff+ trend chart when graded sessions are available', async () => {
+    mockApi()
+    renderAt()
+
+    expect(await screen.findByText('Stuff+ Over Time')).toBeInTheDocument()
+    expect(await screen.findByText(/tjStuff\+ \(v3, MLB-calibrated\)/)).toBeInTheDocument()
+  })
+
+  it('explains that Stuff+ needs at least two graded sessions', async () => {
+    mockApi({ stuffTrend: { model: STUFF_TREND.model, trend: [STUFF_TREND.trend[0]] } })
+    renderAt()
+
+    expect(await screen.findByText(/Two or more graded sessions/)).toBeInTheDocument()
+  })
+
+  it('shows Stuff+ as unavailable rather than an error when the model service is unconfigured', async () => {
+    mockApi({ fail: { stuffTrend: 503 } })
+    renderAt()
+
+    expect(await screen.findByText(/Stuff\+ scoring isn.t configured/)).toBeInTheDocument()
+    // The rest of the page still renders.
+    expect(screen.getByText('Casey Rivera')).toBeInTheDocument()
   })
 
   it('shows benchmark percentiles for the default (high school) level', async () => {
