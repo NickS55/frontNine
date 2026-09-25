@@ -11,6 +11,7 @@ import CoachPlayerPage from './CoachPlayerPage'
 import PlayerProfilePage from './PlayerProfilePage'
 import TrackingSessionPage from './TrackingSessionPage'
 import SupportPage from './SupportPage'
+import PrivacyPage from './PrivacyPage'
 import NotFoundPage from './NotFoundPage'
 import './App.css'
 
@@ -30,6 +31,7 @@ export default function App() {
       <Route path="/profile/:profileId" element={<PlayerProfilePage />} />
       <Route path="/tracking-uploads/:uploadId" element={<TrackingSessionPage />} />
       <Route path="/support" element={<SupportPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )

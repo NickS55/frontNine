@@ -202,6 +202,10 @@ export default function LandingPage() {
           © 2025 All Nine Sports · Built for the serious game. ·{' '}
           <Link to="/support" className="text-primary no-underline hover:underline">
             Support
+          </Link>{' '}
+          ·{' '}
+          <Link to="/privacy" className="text-primary no-underline hover:underline">
+            Privacy
           </Link>
         </p>
       </footer>

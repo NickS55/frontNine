@@ -9,6 +9,7 @@ const TOPICS = [
   'Bullpen tracking',
   'TrackMan upload',
   'Arm care & workload',
+  'Caliper (iOS)',
   'Billing',
   'Bug report',
   'Something else',
