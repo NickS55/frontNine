@@ -22,7 +22,7 @@ export function Header() {
 
         {/* Brand */}
         <NavLink to="/" className="flex items-center gap-3 no-underline">
-          <Logo className="h-9 w-auto text-primary" />
+          <Logo className="h-9 w-auto" />
           <span className="font-display text-xl font-bold tracking-wide text-foreground uppercase">
             All Nine Sports
           </span>

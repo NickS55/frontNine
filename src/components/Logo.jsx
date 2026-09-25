@@ -1,22 +1,38 @@
-// "Nine" logomark, converted from drawing.svg (Ahsing-font "9", outlined to a
-// path so it renders without the font). Fills with currentColor — set the color
-// via a text-* class (e.g. text-primary for the site gold).
+// "All Nine" ticket logomark. Two-color and self-contained: the "9" is the
+// Archivo ExtraBold glyph converted to outlines (SIL OFL 1.1), so it renders
+// identically without the font installed and carries no licensing question.
+//
+// Unlike the previous mark this does NOT use currentColor — the ticket body
+// and the disc are fixed brand colors (--secondary #122555 / white), so a
+// text-* class on it has no effect. Sized via height, e.g. `h-9 w-auto`.
+// Source and regeneration pipeline live in the workspace root: generate-logo.js.
 export function Logo({ className = '', title = 'All Nine Sports' }) {
   return (
     <svg
-      viewBox="0 0 189.66249 200.69801"
+      viewBox="0 0 480 320"
       xmlns="http://www.w3.org/2000/svg"
-      fill="currentColor"
       role="img"
       aria-label={title}
       className={className}
     >
-      <g transform="translate(-8.2816125,-48.150992)">
-        <path
-          transform="matrix(5.7174359,0,0,5.7174359,-498.77652,-707.87865)"
-          d="m 112.10508,164.23629 c -4.7244,0 -5.8928,-9.7536 -13.461998,-9.7536 -7.5692,0 -9.144,7.0104 -8.382,12.5476 h 1.1176 c 0,-2.2352 0.5588,-3.6576 3.0988,-3.6576 2.4892,0 5.1308,3.9624 10.159998,3.9624 14.5796,0 17.8816,-11.0236 17.1196,-19.8628 -0.8128,-8.9408 -7.0104,-15.24 -16.5608,-15.24 -9.499598,0 -16.509998,3.8608 -16.509998,10.8204 0,6.9088 7.0104,10.4648 16.509998,10.4648 5.334,0 8.0264,-1.9304 8.9408,-5.0292 2.8956,7.8232 3.4544,15.748 -2.032,15.748 z m -1.4732,-12.7508 c -2.9464,1.8288 -6.5532,0.0508 -10.1092,-5.6896 -3.606798,-5.7404 -3.606798,-9.7536 -0.711198,-11.5316 2.895598,-1.8288 6.502398,-0.4064 10.109198,5.6896 3.81,6.4008 3.302,9.906 0.7112,11.5316 z"
-        />
-      </g>
+      {/* ticket body: rounded rect with a semicircular notch bitten out of each side */}
+      <path
+        d="M 40 0 H 440 A 40 40 0 0 1 480 40 V 126 A 34 34 0 0 0 480 194 V 280 A 40 40 0 0 1 440 320 H 40 A 40 40 0 0 1 0 280 V 194 A 34 34 0 0 0 0 126 V 40 A 40 40 0 0 1 40 0 Z"
+        fill="#122555"
+      />
+      {/* inset hairline, concentric with the notches */}
+      <path
+        d="M 40 15 H 440 A 25 25 0 0 1 465 40 V 113.35 A 49 49 0 0 0 465 206.65 V 280 A 25 25 0 0 1 440 305 H 40 A 25 25 0 0 1 15 280 V 206.65 A 49 49 0 0 0 15 113.35 V 40 A 25 25 0 0 1 40 15 Z"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.28"
+        strokeWidth="3"
+      />
+      <circle cx="240" cy="160" r="86" fill="#ffffff" />
+      <path
+        d="M239.25 219Q226.31 219 217.18 214.44Q208.05 209.87 203.16 201.57Q198.26 193.28 198.26 181.82H223.82Q223.82 187.47 225.56 191.37Q227.3 195.27 230.87 197.26Q234.44 199.25 239.42 199.25Q246.72 199.25 250.54 195.6Q254.36 191.95 255.77 184.65Q257.18 177.34 257.18 166.56Q255.02 168.71 251.2 170.87Q247.39 173.03 242.66 174.44Q237.93 175.85 232.95 175.85Q221.33 175.85 212.86 171.45Q204.4 167.05 199.75 158.92Q195.11 150.79 195.11 139.84Q195.11 127.55 200.58 118.84Q206.06 110.13 215.94 105.56Q225.81 101 238.76 101Q250.04 101 258.67 104.15Q267.3 107.31 273.11 113.95Q278.92 120.58 281.91 131.21Q284.89 141.83 284.89 156.93Q284.89 174.02 281.99 185.89Q279.08 197.76 273.36 205.06Q267.63 212.36 259.09 215.68Q250.54 219 239.25 219ZM239.25 157.59Q244.9 157.59 248.8 155.35Q252.7 153.11 254.6 149.05Q256.51 144.98 256.51 139.34Q256.51 133.69 254.6 129.55Q252.7 125.4 248.88 123.07Q245.06 120.75 239.25 120.75Q233.61 120.75 229.79 123.07Q225.98 125.4 223.98 129.46Q221.99 133.53 221.99 139.17Q221.99 144.81 223.9 148.96Q225.81 153.11 229.63 155.35Q233.44 157.59 239.25 157.59Z"
+        fill="#122555"
+      />
     </svg>
   )
 }
