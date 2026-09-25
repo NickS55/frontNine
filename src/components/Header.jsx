@@ -38,6 +38,9 @@ export function Header() {
           <NavLink to="/pitch-dna" className={navLinkCls}>
             MLB Comp
           </NavLink>
+          <NavLink to="/support" className={navLinkCls}>
+            Support
+          </NavLink>
         </nav>
 
         {/* Right side */}

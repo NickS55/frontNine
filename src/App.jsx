@@ -10,6 +10,7 @@ import InvitePage from './InvitePage'
 import CoachPlayerPage from './CoachPlayerPage'
 import PlayerProfilePage from './PlayerProfilePage'
 import TrackingSessionPage from './TrackingSessionPage'
+import SupportPage from './SupportPage'
 import NotFoundPage from './NotFoundPage'
 import './App.css'
 
@@ -28,6 +29,7 @@ export default function App() {
       <Route path="/profile" element={<PlayerProfilePage />} />
       <Route path="/profile/:profileId" element={<PlayerProfilePage />} />
       <Route path="/tracking-uploads/:uploadId" element={<TrackingSessionPage />} />
+      <Route path="/support" element={<SupportPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )

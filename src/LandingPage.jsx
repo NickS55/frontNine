@@ -198,7 +198,12 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-border/20 px-6 py-8 text-center text-sm text-muted-foreground">
-        <p>© 2025 All Nine Sports · Built for the serious game.</p>
+        <p>
+          © 2025 All Nine Sports · Built for the serious game. ·{' '}
+          <Link to="/support" className="text-primary no-underline hover:underline">
+            Support
+          </Link>
+        </p>
       </footer>
     </div>
   )
