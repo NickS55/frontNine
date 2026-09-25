@@ -54,15 +54,25 @@ export default function LandingPage() {
           <span className="text-primary">See The Progress.</span>
         </h1>
 
-        <p
-          className="mb-10 max-w-xl text-lg leading-relaxed text-muted-foreground md:text-xl"
+        {/* Replaced hero subtext with the demo video. Original copy:
+            "All Nine Sports gives high school and travel ball coaches one platform
+            to develop pitchers: track every bullpen with just a phone, keep every
+            arm healthy, and show every pitcher exactly how they're improving,
+            all season long." */}
+        <div
+          className="mb-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-border/40 bg-card shadow-[0_0_60px_oklch(0.83_0.17_86_/_0.08)]"
           style={{ animation: 'fadeInUp 0.55s 0.18s ease both', opacity: 0 }}
         >
-          All Nine Sports gives high school and travel ball coaches one platform
-          to develop pitchers: track every bullpen with just a phone, keep every
-          arm healthy, and show every pitcher exactly how they&apos;re improving,
-          all season long.
-        </p>
+          <div className="relative h-0 pb-[42.1875%]">
+            <iframe
+              src="https://www.loom.com/embed/4190d9ad4a8a4c7fa61e648bc3ff253a"
+              title="All Nine Sports demo"
+              frameBorder="0"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full"
+            />
+          </div>
+        </div>
 
         <div
           className="flex flex-col items-center gap-4"
