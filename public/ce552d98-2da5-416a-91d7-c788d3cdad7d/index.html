@@ -34,7 +34,7 @@ button:focus-visible, tr:focus-visible, input:focus-visible, select:focus-visibl
 @media (max-width: 860px) { .top { grid-template-columns: 1fr; } }
 .top > * { min-width: 0; }   /* let wide tables scroll inside their panel instead of stretching the page */
 .stage { position: relative; background: var(--stage); border-radius: 8px; aspect-ratio: 1; overflow: hidden; }
-.stage canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.stage canvas { width: 100%; height: 100%; display: block; }   /* fixed view: the viewer cannot turn the ball */
 .stage .tag { position: absolute; left: 10px; top: 8px; color: #d8d6d0; font-size: 12px; pointer-events: none; }
 .stage .tag2 { position: absolute; right: 10px; bottom: 8px; color: #d8d6d0; font-size: 12px; pointer-events: none; text-align: right; }
 .ctrl { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
@@ -124,7 +124,6 @@ html { -webkit-text-size-adjust: 100%; }
       <div class="ctrl">
         <label>Playback <select id="speed"><option value="200">1/200 of real time</option><option value="100" selected>1/100 of real time</option><option value="40">1/40 of real time</option></select></label>
         <label><input type="checkbox" id="curve"> seam curve used by the fit</label>
-        <button id="reset">Reset view</button>
       </div>
       <p class="small" id="playnote" style="margin:8px 0 0"></p>
     </div>
@@ -286,7 +285,7 @@ function panel() {
   $("sols").innerHTML = t;
   $("sols").querySelectorAll("tr.pick").forEach(r => { const go = () => { S.sol = +r.dataset.i; panel(); drawStrip(); }; r.onclick = go; r.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } }; });
   $("aliasnote").innerHTML = `Click a row to show that solution on the ball and in the frame strip. The headline is the best-scoring solution at no more than 3,600 rpm; faster ones are listed after it with their scores, whatever they scored. The alternates are the other distinct local optima the search found (it starts from pairs of single-frame fits and is not exhaustive). A turn of θ per frame about one axis and 360 − θ about the opposite axis are the same rotation at every sampled frame, so the last row can only be ruled out by physics: pitches do not spin at more than about 3,500 rpm. When the spin axis lies along one of the seam's three symmetry axes (a textbook four-seam or two-seam grip does), θ + 180° per frame is also a near-perfect match; it shows up above as an alternate about the opposite axis at well over 3,600 rpm. Solutions closer than 15° per frame to a better one are merged into it.`;
-  $("playnote").textContent = `Slowed to 1/${S.speed} of real time: ${fmt(240 / S.speed, 1)} video frames per second, the ball turns ${fmt(s.rpm / 60 / S.speed, 2)} times a second on screen. Blue rod: the spin axis; the ball turns counter-clockwise seen from the arrow end. Loops over the frames used. Drag to look from another side.`;
+  $("playnote").textContent = `Slowed to 1/${S.speed} of real time: ${fmt(240 / S.speed, 1)} video frames per second, the ball turns ${fmt(s.rpm / 60 / S.speed, 2)} times a second on screen. Blue rod: the spin axis; the ball turns counter-clockwise seen from the arrow end. Loops over the frames used.`;
 }
 
 // ---- frame strip ----
@@ -411,16 +410,11 @@ async function init3d() {
   try {
     const THREE = await import("three");
     const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
-    const { OrbitControls } = await import("three/addons/controls/OrbitControls.js");
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(2, devicePixelRatio));
     const scene = new THREE.Scene();
     const cam = new THREE.OrthographicCamera(-1.75, 1.75, 1.75, -1.75, 0.1, 50);
     cam.position.set(0, 0, 10);
-    const controls = new OrbitControls(cam, canvas); controls.enablePan = false; controls.enableZoom = false;
-    // on touch screens a vertical swipe over the ball scrolls the page; a sideways drag turns the view
-    if (matchMedia("(pointer: coarse)").matches) canvas.style.touchAction = "pan-y";
-    $("reset").onclick = () => controls.reset();
     scene.add(new THREE.HemisphereLight(0xffffff, 0x9a958a, 1.5));
     const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-3, 4, 6); scene.add(key);
     const ball = new THREE.Group(); ball.matrixAutoUpdate = false; scene.add(ball);
