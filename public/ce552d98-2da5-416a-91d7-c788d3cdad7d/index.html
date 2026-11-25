@@ -32,6 +32,7 @@ button:focus-visible, tr:focus-visible, input:focus-visible, select:focus-visibl
 .verdict b { display: block; }
 .top { display: grid; grid-template-columns: minmax(300px, 440px) 1fr; gap: 16px; align-items: start; }
 @media (max-width: 860px) { .top { grid-template-columns: 1fr; } }
+.top > * { min-width: 0; }   /* let wide tables scroll inside their panel instead of stretching the page */
 .stage { position: relative; background: var(--stage); border-radius: 8px; aspect-ratio: 1; overflow: hidden; }
 .stage canvas { width: 100%; height: 100%; display: block; touch-action: none; }
 .stage .tag { position: absolute; left: 10px; top: 8px; color: #d8d6d0; font-size: 12px; pointer-events: none; }
@@ -75,6 +76,31 @@ section { margin-top: 16px; }
 ul { margin: 0; padding-left: 18px; } li { margin-bottom: 6px; max-width: 95ch; }
 code { font-size: 12.5px; background: var(--soft); padding: 1px 4px; border-radius: 4px; }
 .err { color: var(--bad); }
+html { -webkit-text-size-adjust: 100%; }
+/* phones: tighter gutters, one-row clip picker, tables and the frame strip scroll sideways with their labels pinned */
+@media (max-width: 640px) {
+  main { padding: 14px 12px 40px; }
+  h1 { font-size: 22px; }
+  .panel { padding: 12px; }
+  .sub, li { max-width: none; }
+  .picker { flex-wrap: nowrap; overflow-x: auto; margin: 12px -12px 4px; padding: 2px 12px 8px; scrollbar-width: none; }
+  .picker::-webkit-scrollbar { display: none; }
+  .picker > * { flex: 0 0 auto; }
+  .picker .grp:not(:first-child) { margin-left: 10px; }
+  button, select { padding: 9px 12px; min-height: 40px; }
+  .ctrl input[type=range] { min-width: 0; height: 32px; }
+  .ctrl input[type=checkbox] { width: 20px; height: 20px; }
+  .stage .tag { right: 10px; font-size: 11px; }
+  .tile .v { font-size: 22px; }
+  .legend { gap: 6px 12px; }
+  .scroll { margin: 0 -12px; padding: 0 12px; }
+  table { font-size: 12.5px; }
+  th, td { padding: 7px 6px; }
+  th:first-child, td:first-child { position: sticky; left: -12px; z-index: 1; background: var(--panel); white-space: normal; min-width: 96px; max-width: 124px; }
+  tr.sel td:first-child, tr.pick:hover td:first-child { background: var(--soft); }
+  .strip canvas { width: 68px; height: 68px; }
+  .strip .rl { position: sticky; left: -12px; z-index: 1; background: var(--panel); align-self: stretch; display: flex; align-items: center; max-width: 66px; font-size: 11px; padding-right: 6px; }
+}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head>
@@ -302,7 +328,7 @@ function drawStrip() {
     }
     cells[base].classList.toggle("cur", Math.abs(S.t - f.t) < 0.5 && f.used);
     const j = u.indexOf(f);
-    cells[base + 4].innerHTML = j >= 0 && s ? `${fmt(s.per_frame[j], 2)}<i style="width:${Math.max(2, s.per_frame[j] * 80)}px"></i>` : "";
+    cells[base + 4].innerHTML = j >= 0 && s ? `${fmt(s.per_frame[j], 2)}<i style="width:${Math.max(4, Math.min(100, s.per_frame[j] * 100))}%"></i>` : "";
   });
 }
 
@@ -392,6 +418,8 @@ async function init3d() {
     const cam = new THREE.OrthographicCamera(-1.75, 1.75, 1.75, -1.75, 0.1, 50);
     cam.position.set(0, 0, 10);
     const controls = new OrbitControls(cam, canvas); controls.enablePan = false; controls.enableZoom = false;
+    // on touch screens a vertical swipe over the ball scrolls the page; a sideways drag turns the view
+    if (matchMedia("(pointer: coarse)").matches) canvas.style.touchAction = "pan-y";
     $("reset").onclick = () => controls.reset();
     scene.add(new THREE.HemisphereLight(0xffffff, 0x9a958a, 1.5));
     const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-3, 4, 6); scene.add(key);
